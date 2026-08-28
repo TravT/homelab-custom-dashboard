@@ -1,0 +1,664 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { 
+  Server, Home, Play, Search, Zap, 
+  Wifi, Folder, HardDrive, Download, Eye,
+  Activity, GripHorizontal, Sun, CloudRain, Database, Network, User, QrCode, X, Calendar as CalendarIcon,
+  ChevronLeft, ChevronRight, MessageSquare, Cpu
+} from 'lucide-react';
+import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
+
+const generateInitialData = () => {
+  return Array.from({ length: 30 }, (_, i) => ({
+    time: i,
+    cpu: 25 + Math.random() * 15,
+    ram: 16 + Math.random() * 2,
+    lan: 20 + Math.random() * 20,
+    tailscale: 10 + Math.random() * 10,
+  }));
+};
+
+const releaseData = [
+  { group: "TODAY", title: "The Grand Tour", desc: "S06E01 - 1080p", icon: <Play size={20}/>, color: "neon-cyan", grad: "from-[#38bdf8] to-[#818cf8]" },
+  { group: "TOMORROW", title: "Severance", desc: "S02E01 - 4K", icon: <Eye size={20}/>, color: "neon-purple", grad: "from-[#a78bfa] to-[#f472b6]" },
+  { group: "THIS WEEK", title: "Deadpool & W.", desc: "Web-DL", icon: <Download size={20}/>, color: "neon-green", grad: "from-[#22c55e] to-[#10b981]" },
+  { group: "SOON", title: "Dune: Part Two", desc: "4K REMUX", icon: <HardDrive size={20}/>, color: "neon-cyan", grad: "from-[#38bdf8] to-[#a78bfa]" },
+];
+
+const weatherData = [
+  { day: 'TODAY', temp: 28, icon: <Sun size={16}/> },
+  { day: 'MON', temp: 26, icon: <CloudRain size={16}/> },
+  { day: 'TUE', temp: 27, icon: <CloudRain size={16}/> },
+  { day: 'WED', temp: 24, icon: <Sun size={16}/> },
+  { day: 'THU', temp: 29, icon: <Sun size={16}/> },
+  { day: 'FRI', temp: 31, icon: <Sun size={16}/> },
+  { day: 'SAT', temp: 30, icon: <Sun size={16}/> },
+];
+
+const getDisplayClass = (idx) => {
+  if (idx < 2) return 'flex';
+  if (idx === 2) return 'hidden sm:flex';
+  if (idx === 3) return 'hidden md:flex';
+  if (idx === 4) return 'hidden lg:flex';
+  if (idx === 5) return 'hidden xl:flex';
+  return 'hidden 2xl:flex';
+};
+
+const Page1 = () => (
+  <div className="flex flex-col">
+    <ServiceRow name="Traefik" desc="Core Reverse Proxy" category="Infra" status="online" icon={<Activity size={18} />} url="#" />
+    <ServiceRow name="Pi-hole" desc="DNS & Ad Blocking" category="Infra" status="online" icon={<Wifi size={18} />} url="#" />
+    <ServiceRow name="Uptime Kuma" desc="Status Monitoring" category="Infra" status="online" icon={<Activity size={18} />} url="#" />
+    <ServiceRow name="Home Assistant" desc="Smart Home Hub" category="Smart Home" status="online" icon={<Home size={18} />} url="#" />
+    <ServiceRow name="Mosquitto" desc="MQTT Broker" category="Smart Home" status="online" icon={<Database size={18} />} url="#" />
+  </div>
+);
+
+const Page2 = () => (
+  <div className="flex flex-col">
+    <ServiceRow name="Jellyfin" desc="Main Media Server" category="Media" status="online" icon={<Play size={18} />} url="#" />
+    <ServiceRow name="Jellyseerr" desc="Media Requests" category="Media" status="online" icon={<Search size={18} />} url="#" />
+    <ServiceRow name="Sonarr" desc="TV Management" category="Media Mgmt" status="online" icon={<Search size={18} />} url="#" />
+    <ServiceRow name="Radarr" desc="Movie Management" category="Media Mgmt" status="offline" icon={<Search size={18} />} url="#" />
+    <ServiceRow name="Bazarr" desc="Subtitle Management" category="Media Mgmt" status="online" icon={<Folder size={18} />} url="#" />
+  </div>
+);
+
+const Page3 = () => (
+  <div className="flex flex-col">
+    <ServiceRow name="qBittorrent" desc="Download Client" category="Downloads" status="online" icon={<Download size={18} />} url="#" />
+    <ServiceRow name="Prowlarr" desc="Indexer Management" category="Downloads" status="online" icon={<Database size={18} />} url="#" />
+    <ServiceRow name="FlareSolverr" desc="Cloudflare Bypass" category="Downloads" status="online" icon={<Network size={18} />} url="#" />
+    <ServiceRow name="RDT-Client" desc="Real-Debrid Client" category="Downloads" status="online" icon={<Download size={18} />} url="#" />
+    <ServiceRow name="Maintainerr" desc="Media Cleanup" category="Media Mgmt" status="online" icon={<Folder size={18} />} url="#" />
+  </div>
+);
+
+const Page4 = () => (
+  <div className="flex flex-col">
+    <ServiceRow name="Open WebUI" desc="Local LLM Interface" category="AI" status="online" icon={<MessageSquare size={18} />} url="#" />
+    <ServiceRow name="Ollama" desc="LLM Runner" category="AI" status="online" icon={<Cpu size={18} />} url="#" />
+    <ServiceRow name="Llama.cpp" desc="Model Inference" category="AI" status="online" icon={<Cpu size={18} />} url="#" />
+    <ServiceRow name="Paperless-ngx" desc="Document OCR & Mgmt" category="Docs" status="online" icon={<Folder size={18} />} url="#" />
+    <ServiceRow name="FileBrowser" desc="Web File Manager" category="Docs" status="online" icon={<Folder size={18} />} url="#" />
+  </div>
+);
+
+const Page5 = () => (
+  <div className="flex flex-col">
+    <ServiceRow name="Guacamole" desc="Remote Desktop" category="Infra" status="online" icon={<Network size={18} />} url="#" />
+    <ServiceRow name="ws-scrcpy" desc="Android Mirroring" category="Infra" status="online" icon={<Network size={18} />} url="#" />
+    <ServiceRow name="Netdata" desc="Hardware Metrics" category="Infra" status="online" icon={<Activity size={18} />} url="#" />
+    <ServiceRow name="Dozzle" desc="Docker Logs" category="Infra" status="online" icon={<Database size={18} />} url="#" />
+    <ServiceRow name="n8n" desc="Workflow Automation" category="Smart Home" status="online" icon={<Activity size={18} />} url="#" />
+  </div>
+);
+
+const pagesData = [<Page1 />, <Page2 />, <Page3 />, <Page4 />, <Page5 />];
+
+export default function App() {
+  const [isNavOpen, setIsNavOpen] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+  const carouselRef = useRef(null);
+  const scrollInterval = useRef(null);
+  
+  const [luckText, setLuckText] = useState('');
+  const [showCV, setShowCV] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [graphData, setGraphData] = useState(generateInitialData());
+  
+  const [activeStackIndex, setActiveStackIndex] = useState(0);
+  const stackSequence = useMemo(() => Array.from({length: 50}, (_, i) => pagesData[i % pagesData.length]), []);
+  const [touchStartX, setTouchStartX] = useState(0);
+
+  const [isFlippedStorage, setIsFlippedStorage] = useState(false);
+  const [isFlippedNetwork, setIsFlippedNetwork] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setGraphData(prev => {
+        const last = prev[prev.length - 1];
+        const nextCpu = Math.max(5, Math.min(95, last.cpu + (Math.random() * 40 - 20)));
+        const nextRam = Math.max(12, Math.min(32, last.ram + (Math.random() * 2 - 1)));
+        const nextLan = Math.max(2, Math.min(100, last.lan + (Math.random() * 50 - 25)));
+        const nextTailscale = Math.max(0, Math.min(40, last.tailscale + (Math.random() * 20 - 10)));
+        
+        return [
+          ...prev.slice(1),
+          { time: last.time + 1, cpu: nextCpu, ram: nextRam, lan: nextLan, tailscale: nextTailscale }
+        ];
+      });
+    }, 1000); 
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = (e) => {
+      const currentScrollY = e.target.scrollTop;
+      if (currentScrollY > lastScrollY + 10) setIsNavOpen(false);
+      else if (currentScrollY < lastScrollY - 10) setIsNavOpen(true);
+      setLastScrollY(currentScrollY);
+    };
+    const scrollContainer = document.getElementById('main-scroll');
+    if (scrollContainer) scrollContainer.addEventListener('scroll', handleScroll);
+    return () => scrollContainer?.removeEventListener('scroll', handleScroll);
+  }, [lastScrollY]);
+
+  useEffect(() => {
+    const startAutoScroll = () => {
+      scrollInterval.current = setInterval(() => {
+        if (carouselRef.current) {
+          const maxScroll = carouselRef.current.scrollWidth - carouselRef.current.clientWidth;
+          if (carouselRef.current.scrollLeft >= maxScroll - 10) carouselRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+          else carouselRef.current.scrollBy({ left: 280, behavior: 'smooth' });
+        }
+      }, 4500);
+    };
+    startAutoScroll();
+    return () => clearInterval(scrollInterval.current);
+  }, []);
+  const pauseScroll = () => clearInterval(scrollInterval.current);
+
+  useEffect(() => {
+    const fullText = "> LUCK: SYSTEM OPTIMAL. MAY YOUR BANDS BE WIDE AND YOUR LATENCY LOW.";
+    let i = 0;
+    const timer = setInterval(() => {
+      setLuckText(fullText.substring(0, i));
+      i++;
+      if (i > fullText.length) clearInterval(timer);
+    }, 50);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleTouchStart = (e) => setTouchStartX(e.touches[0].clientX);
+  const handleTouchEnd = (e) => {
+    const diff = touchStartX - e.changedTouches[0].clientX;
+    if (diff > 40) setActiveStackIndex(prev => Math.min(prev + 1, stackSequence.length - 1));
+    else if (diff < -40) setActiveStackIndex(prev => Math.max(prev - 1, 0));
+  };
+
+  return (
+    <div 
+      className="flex min-h-screen text-gray-200 selection:bg-neon-purple/30 pb-4 md:pb-0 relative overflow-hidden bg-[#0a0a0c]"
+      style={{ backgroundImage: 'radial-gradient(circle at center, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '24px 24px' }}
+    >
+      <style>{`
+        @keyframes hddBlink {
+          0%, 100% { opacity: 0.1; }
+          10%, 30% { opacity: 1; filter: drop-shadow(0 0 6px currentColor); }
+          20%, 40% { opacity: 0.2; filter: none; }
+          50%, 90% { opacity: 0.1; filter: none; }
+        }
+        .animate-hdd { animation: hddBlink 1.5s infinite; }
+        .animate-hdd-delayed { animation: hddBlink 1.8s infinite 0.7s; }
+      `}</style>
+      
+      {showCV && (
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-cyber-card border border-neon-cyan/30 shadow-[0_0_40px_rgba(56,189,248,0.2)] p-8 rounded-xl max-w-md w-full relative">
+            <button onClick={() => setShowCV(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors"><X size={24} /></button>
+            <div className="flex flex-col items-center text-center space-y-6">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-neon-cyan to-neon-purple p-1">
+                <div className="w-full h-full bg-cyber-card rounded-full flex items-center justify-center">
+                  <User size={40} className="text-white opacity-80" />
+                </div>
+              </div>
+              <div>
+                <h2 className="font-vt323 text-4xl text-white tracking-widest">Tiago</h2>
+                <p className="font-silkscreen text-neon-cyan mt-2">Systems Engineer</p>
+              </div>
+              <div className="w-full h-px bg-white/10 my-4"></div>
+              <div className="bg-white p-4 rounded-lg"><QrCode size={120} className="text-black" /></div>
+              <p className="font-pixel text-xs text-gray-400 leading-relaxed">Scan to connect.<br/>Command Center Architect.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCalendar && (
+        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-2xl flex items-center justify-center p-4 md:p-10 animate-in fade-in duration-300">
+          <div className="bg-cyber-card/90 border border-neon-purple/30 shadow-[0_0_60px_rgba(167,139,250,0.2)] p-6 md:p-10 rounded-2xl max-w-4xl w-full relative flex flex-col h-full md:h-auto max-h-full">
+            <button onClick={() => setShowCalendar(false)} className="absolute top-6 right-6 text-gray-500 hover:text-neon-purple transition-colors"><X size={28} className="pixel-icon" /></button>
+            
+            <div className="font-vt323 text-3xl md:text-5xl text-white tracking-widest mb-2 flex items-center gap-4">
+              <CalendarIcon size={32} className="text-neon-purple pixel-icon" /> AUGUST 2026
+            </div>
+            <div className="font-silkscreen text-xs md:text-sm text-neon-purple/80 uppercase tracking-widest mb-8">// Scheduled Releases</div>
+            
+            <div className="flex-1 overflow-x-auto no-scrollbar pb-4 w-full">
+              <div className="min-w-[600px] h-full flex flex-col">
+                <div className="grid grid-cols-7 gap-2 md:gap-4 flex-1">
+                  {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
+                    <div key={day} className="font-pixel text-[0.55rem] md:text-xs text-gray-500 text-center mb-2">{day}</div>
+                  ))}
+                  {Array.from({length: 31}).map((_, i) => (
+                    <div key={i} className={`border ${i === 14 ? 'border-neon-green/30 bg-neon-green/5' : i === 28 ? 'border-neon-cyan/30 bg-neon-cyan/5' : 'border-white/5 bg-black/20'} rounded-lg p-1.5 md:p-2 flex flex-col relative group hover:border-white/30 transition-colors md:aspect-square min-h-[80px]`}>
+                      <span className="font-pixel text-[0.6rem] md:text-sm text-gray-400">{i + 1}</span>
+                      {i === 14 && (
+                        <div className="mt-1 md:mt-2 w-full bg-neon-green/10 border-l-[2px] md:border-l-[3px] border-neon-green p-1 rounded-sm shadow-[0_0_8px_rgba(34,197,94,0.1)]">
+                          <div className="font-pixel text-[0.4rem] md:text-[0.55rem] text-neon-green whitespace-normal leading-tight">Deadpool & W.</div>
+                        </div>
+                      )}
+                      {i === 28 && (
+                        <div className="mt-1 md:mt-2 w-full bg-neon-cyan/10 border-l-[2px] md:border-l-[3px] border-neon-cyan p-1 rounded-sm shadow-[0_0_8px_rgba(56,189,248,0.1)]">
+                          <div className="font-pixel text-[0.4rem] md:text-[0.55rem] text-neon-cyan whitespace-normal leading-tight">Dune: Part Two</div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* DESKTOP SIDEBAR */}
+      <aside className={`hidden md:flex fixed top-0 left-0 h-full w-20 bg-[#08080a]/90 backdrop-blur-2xl flex-col items-center justify-center gap-8 border-r border-white/5 z-50 transition-transform duration-500 ease-in-out ${isNavOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <SidebarIcon icon={<Server size={20} />} active />
+        <SidebarIcon icon={<Home size={20} />} />
+        <SidebarIcon icon={<Play size={20} />} />
+        <SidebarIcon icon={<Search size={20} />} />
+        <SidebarIcon icon={<Folder size={20} />} />
+      </aside>
+
+      {/* MOBILE BOTTOM NAVIGATION */}
+      <div className={`md:hidden fixed bottom-0 left-0 w-full transition-transform duration-500 ease-in-out z-50 ${isNavOpen ? 'translate-y-0' : 'translate-y-[calc(100%-1.2rem)]'}`}>
+        <div onClick={() => setIsNavOpen(!isNavOpen)} className="absolute -top-4 left-1/2 -translate-x-1/2 w-20 h-5 flex items-center justify-center cursor-pointer text-gray-500 hover:text-neon-cyan transition-colors">
+          <GripHorizontal size={24} className="drop-shadow-[0_0_8px_rgba(0,0,0,1)]" />
+        </div>
+        <nav className="w-full h-16 bg-[#08080a]/95 backdrop-blur-2xl border-t border-white/10 flex justify-around items-center pb-safe shadow-[0_-8px_32px_rgba(0,0,0,0.8)]">
+          <MobileNavIcon icon={<Server size={20} />} label="INFRA" font="font-pixel" active />
+          <MobileNavIcon icon={<Home size={20} />} label="HOME" font="font-silkscreen" />
+          <MobileNavIcon icon={<Play size={20} />} label="MEDIA" font="font-silkscreen" />
+          <MobileNavIcon icon={<Search size={20} />} label="FIND" font="font-silkscreen" />
+          <MobileNavIcon icon={<Folder size={20} />} label="DOCS" font="font-pixel" />
+        </nav>
+      </div>
+
+      {/* MAIN CONTENT */}
+      <main id="main-scroll" className="flex-1 flex flex-col h-screen overflow-y-auto w-full md:pl-20 no-scrollbar scroll-smooth relative z-10">
+        
+        <header className="flex flex-col px-6 md:px-10 pt-8 pb-4 shrink-0 gap-4">
+          <div className="flex justify-between items-center w-full">
+            <div>
+              <h2 className="font-vt323 text-3xl md:text-4xl text-white tracking-widest drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">Hello, Tiago</h2>
+              <div className="font-silkscreen text-[0.65rem] md:text-xs text-neon-cyan mt-1 uppercase tracking-widest drop-shadow-[0_0_4px_rgba(56,189,248,0.5)]">
+                Command Center
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 bg-black/30 px-3 py-1.5 rounded-lg border border-white/10">
+                <div className="font-silkscreen text-[0.55rem] md:text-[0.65rem] text-gray-400 tracking-widest uppercase mr-2 hidden sm:block">Rio, RJ</div>
+                {/* Dynamically expanding weather widget */}
+                {weatherData.map((w, idx) => (
+                  <div key={idx} className={`flex-col items-center gap-0.5 ${getDisplayClass(idx)}`}>
+                    <span className="font-pixel text-[0.45rem] text-gray-500">{w.day}</span>
+                    <div className="flex items-center gap-1 text-gray-300">
+                      <div className="pixel-icon">{w.icon}</div>
+                      <span className="font-pixel text-[0.65rem] text-white">{w.temp}°</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => setShowCV(true)} className="w-10 h-10 bg-black/40 border border-neon-purple/50 rounded-lg flex items-center justify-center text-neon-purple hover:bg-neon-purple/20 transition-colors shadow-[0_0_12px_rgba(167,139,250,0.3)]">
+                <User size={18} className="pixel-icon" />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-2 w-full">
+            <div className="font-pixel text-xs md:text-sm text-neon-green/90 leading-loose tracking-widest break-words drop-shadow-[0_0_6px_rgba(34,197,94,0.5)]">
+              {luckText}<span className="inline-block w-2.5 h-3.5 bg-neon-green ml-2 animate-pulse align-middle shadow-[0_0_10px_#22c55e]"></span>
+            </div>
+          </div>
+        </header>
+
+        <div className="flex-1 px-6 md:px-10 pb-28 pt-2 space-y-8 md:space-y-10">
+          
+          <section>
+            <div className="font-vt323 text-2xl text-gray-400 tracking-widest mb-4 uppercase flex items-center gap-3">
+              <span className="text-neon-purple opacity-50">//</span> SYSTEM METRICS
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+              <GraphBox title="Processor" value={`${Math.round(graphData[graphData.length-1].cpu)}%`} dataKey="cpu" color="#38bdf8" colorEnd="#0284c7" data={graphData} yDomain={[0, 100]} />
+              <GraphBox title="Memory" value={`${graphData[graphData.length-1].ram.toFixed(1)} GB`} dataKey="ram" color="#a78bfa" colorEnd="#7e22ce" data={graphData} yDomain={[0, 32]} />
+              
+              <FlipCard 
+                isFlipped={isFlippedNetwork} 
+                onClick={() => setIsFlippedNetwork(!isFlippedNetwork)}
+                front={
+                  <div className="bg-cyber-card/80 backdrop-blur-md p-5 md:p-6 rounded-xl border border-white/5 relative group overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.6)] h-full min-h-[140px] md:min-h-[160px]">
+                    <div className="relative z-10 flex justify-between items-start">
+                      <div>
+                        <div className="text-xs font-silkscreen text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                          Network I/O
+                          <div className="flex items-center gap-2 ml-2">
+                            <div className="w-1.5 h-1.5 bg-neon-green shadow-[0_0_6px_#22c55e]"></div>
+                            <div className="w-1.5 h-1.5 bg-neon-purple shadow-[0_0_6px_#a78bfa]"></div>
+                          </div>
+                        </div>
+                        <div className="font-pixel text-2xl text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">
+                          {Math.round(graphData[graphData.length-1].lan)} <span className="text-sm text-neon-green">MB/s</span>
+                        </div>
+                      </div>
+                      <div className="pixel-icon opacity-50 text-neon-green"><Activity size={20} /></div>
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 h-28 opacity-50 group-hover:opacity-100 transition-opacity duration-500">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={graphData} margin={{top:0, left:0, right:0, bottom:0}}>
+                          <defs>
+                            <linearGradient id="colorLan" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#22c55e" stopOpacity={0.5}/><stop offset="95%" stopColor="#22c55e" stopOpacity={0}/></linearGradient>
+                            <linearGradient id="colorTail" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#a78bfa" stopOpacity={0.5}/><stop offset="95%" stopColor="#a78bfa" stopOpacity={0}/></linearGradient>
+                          </defs>
+                          <YAxis domain={[0, dataMax => Math.ceil(dataMax * 1.3)]} hide />
+                          <Area type="monotone" isAnimationActive={false} dataKey="lan" stroke="#22c55e" fillOpacity={1} fill="url(#colorLan)" strokeWidth={1.5} style={{ filter: 'drop-shadow(0 0 6px #22c55e)' }} />
+                          <Area type="monotone" isAnimationActive={false} dataKey="tailscale" stroke="#a78bfa" fillOpacity={1} fill="url(#colorTail)" strokeWidth={1.5} style={{ filter: 'drop-shadow(0 0 6px #a78bfa)' }} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                }
+                back={
+                  <div className="bg-cyber-card/90 backdrop-blur-md p-5 md:p-6 rounded-xl border border-neon-red/40 shadow-[0_0_30px_rgba(244,63,94,0.15)] flex flex-col justify-between h-full min-h-[140px] md:min-h-[160px] relative overflow-hidden group">
+                    <div className="relative z-10 flex justify-between items-start">
+                      <div>
+                        <div className="text-xs font-silkscreen text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                           Server Health <Zap size={12} className="text-neon-cyan" />
+                        </div>
+                        <div className="font-pixel text-xl md:text-2xl text-neon-red drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]">
+                          62°<span className="text-sm text-neon-red">C</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-pixel text-[0.55rem] md:text-[0.65rem] text-neon-green mb-1.5 drop-shadow-[0_0_4px_rgba(34,197,94,0.5)]">UPS BATT</div>
+                        <div className="font-pixel text-xl md:text-2xl text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]">100<span className="text-sm">%</span></div>
+                      </div>
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 h-28 opacity-50 group-hover:opacity-100 transition-opacity duration-500">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={graphData} margin={{top:0, left:0, right:0, bottom:0}}>
+                          <defs>
+                            <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.6}/>
+                              <stop offset="95%" stopColor="#9f1239" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <YAxis domain={[0, 100]} hide />
+                          <Area type="monotone" isAnimationActive={false} dataKey="cpu" stroke="#f43f5e" fillOpacity={1} fill="url(#colorTemp)" strokeWidth={2} style={{ filter: 'drop-shadow(0 0 8px #f43f5e)' }} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                }
+              />
+
+              <FlipCard 
+                isFlipped={isFlippedStorage} 
+                onClick={() => setIsFlippedStorage(!isFlippedStorage)}
+                front={
+                  <div className="bg-cyber-card/80 backdrop-blur-md p-5 md:p-6 rounded-xl border border-white/5 shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-col justify-center gap-6 h-full min-h-[140px] md:min-h-[160px]">
+                      <div>
+                        <div className="flex justify-between items-center mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-silkscreen text-gray-400 uppercase tracking-widest">Local NVMe</span>
+                            <div className="w-1.5 h-1.5 bg-neon-cyan rounded-full animate-hdd text-neon-cyan"></div>
+                          </div>
+                          <span className="text-xs font-pixel text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]">65%</span>
+                        </div>
+                        <SegmentedBar filled={6} total={10} colorClass="bg-neon-cyan shadow-[0_0_8px_#38bdf8]" emptyClass="bg-[#27272a]" />
+                      </div>
+                      <div>
+                        <div className="flex justify-between items-center mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-silkscreen text-gray-400 uppercase tracking-widest">Google Drive</span>
+                            <div className="w-1.5 h-1.5 bg-neon-red rounded-full animate-hdd-delayed text-neon-red"></div>
+                          </div>
+                          <span className="text-xs font-pixel text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]">82%</span>
+                        </div>
+                        <SegmentedBar filled={8} total={10} colorClass="bg-neon-red shadow-[0_0_8px_#f43f5e]" emptyClass="bg-[#27272a]" />
+                      </div>
+                  </div>
+                }
+                back={
+                  <GraphBox title="Disk I/O" value="412 MB/s" dataKey="tailscale" color="#f59e0b" colorEnd="#d97706" data={graphData} yDomain={[0, 100]} icon={<HardDrive size={20} />} />
+                }
+              />
+            </div>
+          </section>
+
+          <section className="relative">
+            <div className="flex items-center justify-between mb-4 pr-2">
+              <div className="font-vt323 text-2xl text-gray-400 tracking-widest uppercase flex items-center gap-3">
+                <span className="text-neon-cyan opacity-50">//</span> RELEASE RADAR
+              </div>
+              <button 
+                onClick={() => setShowCalendar(true)}
+                className="text-gray-500 hover:text-neon-cyan transition-colors"
+              >
+                <CalendarIcon size={20} className="pixel-icon drop-shadow-[0_0_4px_rgba(56,189,248,0.5)]" />
+              </button>
+            </div>
+            
+            <div className="w-full relative">
+              <div className="absolute left-0 top-0 bottom-0 w-8 md:w-12 bg-gradient-to-r from-[#08080a] to-transparent z-10 pointer-events-none"></div>
+              <div className="absolute right-0 top-0 bottom-0 w-8 md:w-12 bg-gradient-to-l from-[#08080a] to-transparent z-10 pointer-events-none"></div>
+              
+              <div ref={carouselRef} onPointerDown={pauseScroll} onWheel={pauseScroll} onTouchStart={pauseScroll} className="flex gap-4 py-2 overflow-x-auto snap-x snap-mandatory no-scrollbar relative z-20 px-2">
+                {releaseData.map((item, idx) => <SlimCalendarCard key={idx} {...item} />)}
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <div className="flex justify-between items-end mb-4">
+              <div className="font-vt323 text-2xl text-gray-400 tracking-widest uppercase flex items-center gap-3">
+                <span className="text-neon-green opacity-50">//</span> ACTIVE SERVICES
+              </div>
+              
+              {/* Desktop/Tablet Pagination Controls */}
+              <div className="flex xl:hidden items-center gap-4 pr-2">
+                <span className="font-pixel text-[0.55rem] text-gray-500 uppercase tracking-widest">
+                  PAGE {(activeStackIndex % pagesData.length) + 1}/{pagesData.length}
+                </span>
+                
+                <div className="flex gap-2 mr-3">
+                  <button onClick={() => setActiveStackIndex(p => Math.max(0, p - 1))} className="text-gray-500 hover:text-neon-cyan transition-colors"><ChevronLeft size={16}/></button>
+                  <button onClick={() => setActiveStackIndex(p => Math.min(p + 1, stackSequence.length - 1))} className="text-gray-500 hover:text-neon-cyan transition-colors"><ChevronRight size={16}/></button>
+                </div>
+
+                <div className="flex gap-1">
+                   {pagesData.map((_, i) => (
+                     <div key={i} className={`w-2 h-2 rounded-sm transition-all ${activeStackIndex % pagesData.length === i ? 'bg-neon-cyan shadow-[0_0_8px_#38bdf8]' : 'bg-gray-700'}`}></div>
+                   ))}
+                </div>
+              </div>
+            </div>
+            
+            {/* MOBILE & TABLET: Infinite Stack */}
+            <div 
+              className="relative w-full h-[450px] md:h-[470px] touch-pan-y overflow-hidden xl:hidden"
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+            >
+              {stackSequence.map((PageComp, idx) => {
+                if (idx < activeStackIndex) return null;
+                if (idx > activeStackIndex + 1) return null;
+
+                const isActive = idx === activeStackIndex;
+                const isUnder = idx === activeStackIndex + 1;
+
+                return (
+                  <div 
+                    key={idx}
+                    className={`absolute top-0 left-0 w-full bg-cyber-card/80 backdrop-blur-md rounded-xl border border-white/5 overflow-hidden flex flex-col transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] ${
+                      isActive ? 'z-20 translate-x-0 scale-100 opacity-100 shadow-[0_12px_40px_rgba(0,0,0,0.6)]' 
+                      : isUnder ? 'z-10 translate-x-12 scale-[0.94] opacity-40 pointer-events-none'
+                      : 'z-30 -translate-x-32 scale-105 opacity-0 pointer-events-none'
+                    }`}
+                  >
+                    <div className="hidden md:grid grid-cols-[4fr_5fr_3fr_2fr] gap-4 px-6 py-4 bg-black/40 border-b border-white/5">
+                      <div className="text-xs font-silkscreen text-gray-500 tracking-widest uppercase">Service</div>
+                      <div className="text-xs font-silkscreen text-gray-500 tracking-widest uppercase">Description</div>
+                      <div className="text-xs font-silkscreen text-gray-500 tracking-widest uppercase">Category</div>
+                      <div className="text-xs font-silkscreen text-gray-500 tracking-widest uppercase text-right">Status</div>
+                    </div>
+                    {PageComp}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ULTRAWIDE DESKTOP: Side-by-Side Grid */}
+            <div className="hidden xl:grid grid-cols-2 2xl:grid-cols-3 gap-6 w-full">
+              {pagesData.map((PageComp, idx) => (
+                <div key={idx} className="bg-cyber-card/80 backdrop-blur-md rounded-xl border border-white/5 overflow-hidden flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.6)] h-full">
+                  <div className="grid grid-cols-[4fr_5fr_3fr_2fr] gap-4 px-6 py-4 bg-black/40 border-b border-white/5">
+                    <div className="text-xs font-silkscreen text-gray-500 tracking-widest uppercase">Service</div>
+                    <div className="text-xs font-silkscreen text-gray-500 tracking-widest uppercase truncate">Description</div>
+                    <div className="text-xs font-silkscreen text-gray-500 tracking-widest uppercase">Category</div>
+                    <div className="text-xs font-silkscreen text-gray-500 tracking-widest uppercase text-right">Status</div>
+                  </div>
+                  {PageComp}
+                </div>
+              ))}
+            </div>
+
+          </section>
+
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function SidebarIcon({ icon, active }) {
+  return (
+    <div className={`relative flex justify-center p-3 cursor-pointer group ${active ? 'text-neon-cyan' : 'text-gray-600 hover:text-gray-300'}`}>
+      {active && <div className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-neon-cyan shadow-[0_0_12px_#38bdf8] rounded-r-md"></div>}
+      <div className={`pixel-icon transition-transform ${active ? 'drop-shadow-[0_0_8px_rgba(56,189,248,0.8)] scale-125' : 'group-hover:scale-110'}`}>
+        {icon}
+      </div>
+    </div>
+  );
+}
+
+function MobileNavIcon({ icon, label, font, active }) {
+  return (
+    <div className={`relative flex flex-col items-center justify-center p-3 cursor-pointer group ${active ? 'text-neon-cyan' : 'text-gray-500 hover:text-gray-300'}`}>
+      <div className={`pixel-icon transition-transform mb-1.5 ${active ? 'drop-shadow-[0_0_8px_rgba(56,189,248,0.8)] scale-125' : ''}`}>
+        {icon}
+      </div>
+      <span className={`${font} text-xs uppercase tracking-wider ${active ? 'text-neon-cyan drop-shadow-[0_0_4px_rgba(56,189,248,0.8)]' : ''}`}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function GraphBox({ title, value, dataKey, color, colorEnd, data, yDomain, icon = <Activity size={20} /> }) {
+  return (
+    <div className="bg-cyber-card/80 backdrop-blur-md p-5 md:p-6 rounded-xl border border-white/5 relative group overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.6)] h-full min-h-[140px] md:min-h-[160px]">
+      <div className="relative z-10 flex justify-between items-start">
+        <div>
+          <div className="text-xs font-silkscreen text-gray-500 uppercase tracking-widest mb-2">{title}</div>
+          <div className="font-pixel text-2xl text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">{value}</div>
+        </div>
+        <div className="pixel-icon opacity-50" style={{ color: color }}>{icon}</div>
+      </div>
+      <div className="absolute bottom-0 left-0 right-0 h-28 opacity-50 group-hover:opacity-100 transition-opacity duration-500">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{top:0, left:0, right:0, bottom:0}}>
+            <defs>
+              <linearGradient id={`grad${dataKey}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={color} stopOpacity={0.6}/>
+                <stop offset="95%" stopColor={colorEnd} stopOpacity={0}/>
+              </linearGradient>
+            </defs>
+            <YAxis domain={yDomain} hide />
+            <Area type="monotone" isAnimationActive={false} dataKey={dataKey} stroke={color} fillOpacity={1} fill={`url(#grad${dataKey})`} strokeWidth={2} style={{ filter: `drop-shadow(0 0 8px ${color})` }} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function FlipCard({ front, back, isFlipped, onClick }) {
+  return (
+    <div className="relative h-full min-h-[140px] md:min-h-[160px] w-full [perspective:1000px] cursor-pointer group" onClick={onClick}>
+      <div className={`w-full h-full transition-all duration-700 [transform-style:preserve-3d] ${isFlipped ? '[transform:rotateY(180deg)]' : ''}`}>
+        
+        {/* FRONT */}
+        <div className="absolute inset-0 [backface-visibility:hidden]">
+          {front}
+        </div>
+
+        {/* BACK */}
+        <div className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)]">
+          {back}
+        </div>
+        
+      </div>
+    </div>
+  );
+}
+
+function SegmentedBar({ filled, total, colorClass, emptyClass }) {
+  return (
+    <div className="flex gap-[4px] w-full h-2 md:h-2.5">
+      {Array.from({ length: total }).map((_, i) => <div key={i} className={`flex-1 rounded-sm ${i < filled ? colorClass : emptyClass}`} />)}
+    </div>
+  );
+}
+
+function SlimCalendarCard({ group, title, desc, icon, color, grad }) {
+  return (
+    <div className="min-w-[280px] md:min-w-[320px] snap-center h-16 md:h-20 bg-black/40 backdrop-blur-sm border border-white/5 rounded-lg pl-5 pr-2 flex items-center hover:border-white/20 hover:bg-black/60 transition-all cursor-pointer flex-shrink-0 group overflow-hidden relative shadow-[0_4px_12px_rgba(0,0,0,0.3)]">
+      <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r ${grad} opacity-70 group-hover:opacity-100 transition-opacity`}></div>
+      <div className="flex-1 flex items-center justify-between">
+        <div className="flex flex-col justify-center">
+          <div className="flex items-center gap-2 mb-1.5">
+             <div className="w-2 h-2" style={{ backgroundColor: color === 'neon-cyan' ? '#38bdf8' : color === 'neon-purple' ? '#a78bfa' : '#22c55e', boxShadow: `0 0 6px ${color === 'neon-cyan' ? '#38bdf8' : color === 'neon-purple' ? '#a78bfa' : '#22c55e'}` }}></div>
+             <span className="text-[0.55rem] md:text-xs font-pixel text-gray-500 uppercase tracking-widest">{group}</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="font-pixel text-xs md:text-sm text-white whitespace-nowrap">{title}</span>
+            <span className="text-xs font-silkscreen text-gray-500 whitespace-nowrap hidden sm:inline">{desc}</span>
+          </div>
+        </div>
+        <div className="w-10 h-10 flex items-center justify-center pixel-icon opacity-50 group-hover:opacity-100 group-hover:scale-110 transition-all" style={{ color: color === 'neon-cyan' ? '#38bdf8' : color === 'neon-purple' ? '#a78bfa' : '#22c55e' }}>{icon}</div>
+      </div>
+    </div>
+  );
+}
+
+function ServiceRow({ name, desc, category, status, icon, url }) {
+  const isOnline = status === 'online';
+  return (
+    <a href={url} target="_blank" rel="noreferrer" className="flex flex-col md:grid md:grid-cols-[4fr_5fr_3fr_2fr] px-5 py-4 md:px-6 md:py-4 hover:bg-white/[0.04] transition-colors group cursor-pointer border-b border-white/5 last:border-b-0 hover:z-10 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),inset_0_-1px_0_0_rgba(255,255,255,0.2)] no-underline items-center">
+      <div className="flex items-center justify-between md:justify-start w-full">
+        <div className="flex items-center gap-4">
+          <div className="text-gray-500 group-hover:text-neon-cyan pixel-icon transition-colors">{icon}</div>
+          <span className="font-pixel text-xs md:text-sm text-white tracking-widest group-hover:text-neon-cyan transition-colors">{name}</span>
+        </div>
+        <div className="md:hidden flex items-center gap-2">
+           <span className="font-pixel text-[0.5rem] text-gray-500 uppercase">{isOnline ? '12ms' : 'Err'}</span>
+           <div className={`w-2 h-2 rounded-none ${isOnline ? 'bg-neon-green shadow-[0_0_8px_#22c55e]' : 'bg-neon-red shadow-[0_0_8px_#f43f5e]'}`}></div>
+        </div>
+      </div>
+      <div className="flex md:contents mt-2 md:mt-0 ml-9 md:ml-0 items-center gap-4 w-full">
+        <div className="font-silkscreen text-xs text-gray-500 tracking-wider truncate flex-1 md:flex-none pt-1 group-hover:text-gray-300 transition-colors max-w-[120px] sm:max-w-none">{desc}</div>
+        <div className="md:flex md:items-center">
+          <div className="font-pixel text-[0.55rem] text-gray-600 uppercase tracking-widest bg-black/40 border border-white/5 px-2 py-1 rounded inline-block whitespace-nowrap">{category}</div>
+        </div>
+      </div>
+      <div className="hidden md:flex items-center justify-end gap-4 w-full">
+        <span className="font-pixel text-xs text-gray-500 uppercase tracking-widest">{isOnline ? '12ms' : 'Error'}</span>
+        <div className={`w-2 h-2 rounded-none ${isOnline ? 'bg-neon-green shadow-[0_0_8px_#22c55e]' : 'bg-neon-red shadow-[0_0_8px_#f43f5e]'}`}></div>
+      </div>
+    </a>
+  );
+}

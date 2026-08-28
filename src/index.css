@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@theme {
+  --font-pixel: 'Press Start 2P', monospace;
+  --font-vt323: 'VT323', monospace;
+  --font-silkscreen: 'Silkscreen', monospace;
+  --font-dotgothic: 'DotGothic16', sans-serif;
+  --font-pixelify: 'Pixelify Sans', sans-serif;
+  --color-cyber-bg: #08080a;
+  --color-cyber-card: #121214;
+  --color-cyber-border: #27272a;
+  --color-neon-purple: #a78bfa;
+  --color-neon-cyan: #38bdf8;
+  --color-neon-red: #f43f5e;
+  --color-neon-green: #22c55e;
+}
+
+@layer base {
+  html {
+    font-size: 16px;
+  }
+  body {
+    background-color: var(--color-cyber-bg);
+    background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+    background-size: 8px 8px;
+    background-position: 0 0;
+    color: #f0f0f0;
+    font-family: system-ui, sans-serif;
+    margin: 0;
+    min-height: 100vh;
+  }
+}
+
+.pixel-icon {
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 8px rgba(167, 139, 250, 0.4));
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes flyIn {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fly-in {
+  animation: flyIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
