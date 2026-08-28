@@ -1,0 +1,131 @@
+---------------------------------------------------------------
+ COPY-PASTE THIS INTO YOUR NEXT SESSION
+---------------------------------------------------------------
+
+You are continuing development of a custom homelab dashboard. 
+
+PROJECT PATH: C:\Users\tiago\Desktop\Sandbox\AI_Workspace\Projects\Antigravity_projects\Homepage\custom_dashboard
+GITHUB REPO: https://github.com/TravT/homelab-custom-dashboard
+
+FIRST: Read GEMINI.md in the project root — it is the single source of truth for architecture, design tokens, component patterns, and known gotchas. ADRs are in docs/adr/.
+
+LAST SESSION SUMMARY:
+The UI/UX phase is 100% complete. We built a cyber-pixel aesthetic React dashboard covering: live hardware metric graphs with 3D flip cards (Network card flips to Server Health with CPU temp + UPS battery + live area chart; Storage card flips to Disk I/O chart), a swipeable mobile stack / desktop CSS grid for 25 homelab services, an auto-scrolling release radar with full-screen calendar modal, a dynamically expanding weather widget (2-7 days), a Luck of the Day typewriter animation, and fully self-hosted pixel fonts (no external CDN). The repo is committed and pushed to GitHub.
+
+IMMEDIATE PRIORITY — DATA INTEGRATION:
+1. Replace generateInitialData() in src/App.jsx with real Netdata REST API calls (/api/v1/data) for CPU, RAM, Network I/O, Disk metrics. Netdata runs on the homelab server.
+2. Replace the hardcoded releaseData array with live Sonarr + Radarr API calls (/api/v3/calendar) to populate the Release Radar carousel and calendar modal.
+3. (Optional) Wire Uptime Kuma API to dynamically set service status dots (green/red) for each of the 25 services.
+
+AFTER DATA INTEGRATION:
+4. Write a multi-stage Dockerfile (Node build ? Nginx serve static files).
+5. Write a Nomad job specification for deployment to the homelab cluster.
+6. Decide on sidebar navigation behavior (currently icons are decorative only).
+
+ALREADY WORKING (do NOT redo):
+- All UI layouts, animations, and responsive breakpoints
+- FlipCard 3D CSS transforms (Network I/O ? Server Health, Storage ? Disk I/O)
+- Mobile touch swipe gesture system for service cards
+- Desktop xl/2xl CSS grid for services
+- Self-hosted fonts in public/fonts/ loaded via @font-face in src/index.css
+- Full-screen calendar modal with proper aspect-ratio cells on desktop
+- Auto-scrolling release carousel
+- Weather widget breakpoint expansion (2?7 days)
+- git repo initialized and pushed to GitHub (TravT/homelab-custom-dashboard)
+
+CRITICAL GOTCHA — POWERSHELL TEMPLATE LITERALS:
+When writing JSX to App.jsx via PowerShell Set-Content, backticks are stripped silently.
+Always run this after any file write:
+  (Get-Content src/App.jsx) -replace '\\', '' -replace '\\\$', '$' | Set-Content src/App.jsx
+
+Dev server: npm run dev (from the project root — includes --host flag for LAN access)
+Local IP: http://192.168.0.165:5173
+
+Reference this handoff file for full session context.
+
+---------------------------------------------------------------
+
+---
+
+# SESSION HANDOFF — Homelab Command Center Dashboard
+Generated: 2026-08-28 12:25 (Brasilia time)
+
+---
+
+## 1. Session Summary
+
+Over this long session we built the entire UI/UX phase of a custom homelab dashboard from scratch:
+
+- **Architecture decision:** Abandoned the plan to hack gethomepage/homepage CSS; built a clean React + Vite + Tailwind v4 app instead (ADR-001).
+- **Visual design:** Cyber-pixel aesthetic with VT323/Press Start 2P/Silkscreen fonts, neon glow effects (drop-shadow + shadow-[]), and glassmorphic card backgrounds.
+- **All fonts self-hosted:** Downloaded TTF files from Google Fonts into public/fonts/, removed all CDN links from index.html, added @font-face declarations to src/index.css (ADR-004).
+- **3D Flip Cards:** Network I/O card flips to reveal Server Health (CPU temp in neon-red + UPS Battery % + a live area chart using CPU data as proxy). Storage card flips to Disk I/O area chart.
+- **Service stack:** 25 homelab services across 5 pages; mobile swipe stack vs desktop CSS grid (ADR-003).
+- **Repo:** Initialized git, configured identity, created GitHub repo TravT/homelab-custom-dashboard, pushed all code.
+
+---
+
+## 2. Project State Snapshot
+
+**What works:**
+- All UI components and animations
+- Responsive layout (mobile 375px ? ultrawide 2xl)
+- FlipCards (Network/Storage)
+- Swipeable mobile service stack (touch gestures)
+- Desktop side-by-side service grid
+- Auto-scrolling release carousel + calendar modal
+- Weather widget (2?7 days dynamic expansion)
+- Luck of the Day typewriter animation + blinking cursor
+- Self-hosted fonts (fully air-gapped)
+- Git repo pushed to GitHub
+
+**What is dummy/fake:**
+- ALL hardware graph data (generateInitialData() in App.jsx) — fake random walks
+- ALL release data (eleaseData array in App.jsx) — 4 hardcoded items
+- ALL service status dots — hardcoded online/offline
+- Weather data — hardcoded array
+
+**Modified files (this session):**
+- src/App.jsx — entire app
+- src/index.css — added @font-face declarations
+- index.html — removed Google Fonts CDN
+- public/fonts/ — 6 new TTF font files
+- GEMINI.md — new (full project wiki)
+- README.md — new (project overview)
+- docs/adr/ADR-001 through ADR-004 — new
+
+---
+
+## 3. Open Work Items
+
+| Priority | Item |
+|---|---|
+| HIGH | Connect Netdata API for live CPU/RAM/Network/Disk graphs |
+| HIGH | Connect Sonarr + Radarr API for release calendar |
+| MEDIUM | Connect Uptime Kuma for live service status |
+| MEDIUM | Write Dockerfile (multi-stage Node build ? Nginx) |
+| MEDIUM | Write Nomad job specification |
+| LOW | Decide sidebar icon routing/navigation behavior |
+| LOW | Consider refactoring App.jsx into /components and /hooks when data layer is added |
+
+---
+
+## 4. Key Context & Gotchas
+
+See GEMINI.md for full details. Critical notes:
+
+1. **PowerShell backtick stripping:** Any time App.jsx is written via PowerShell heredoc/Set-Content, template literals break silently. Always post-process with the replace pipeline documented in GEMINI.md.
+2. **Tailwind v4:** Uses @tailwindcss/vite plugin, not PostCSS. Custom tokens declared in @theme {} block in index.css.
+3. **No onWheel on desktop:** Previously caused scroll issues. Desktop layout uses pure CSS grid; mobile layout uses touch event handlers.
+4. **Git identity:** Was set locally (	iago@homelab.local / Tiago) since no global git config existed.
+5. **Dev server LAN access:** --host flag is now baked into package.json dev script. LAN URL: http://192.168.0.165:5173.
+6. **Windows Firewall:** If phone can't reach the dev server, check that Node.js has Private network access in Windows Defender Firewall.
+
+---
+
+## 5. Resume Command
+
+If conversation ID is available:
+  gemini --resume a63888a3-ff8f-44a2-ae7e-c8b6341ed49d
+
+Otherwise, use the copy-paste prompt at the top of this file.

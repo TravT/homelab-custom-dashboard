@@ -1,16 +1,87 @@
-# React + Vite
+# Homelab Command Center Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+> Cyber-pixel aesthetic homelab dashboard — React + Vite + Tailwind v4, fully self-contained, no external CDN dependencies.
 
-Currently, two official plugins are available:
+**Live on local network:** http://192.168.0.165:5173
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## Quick Start
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm install
+npm run dev          # starts at http://localhost:5173 (also exposed on LAN via --host)
+```
 
-## Expanding the Oxlint configuration
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Stack
+
+| | |
+|---|---|
+| **Framework** | React 19 + Vite 8 |
+| **Styling** | Tailwind CSS v4 |
+| **Charts** | Recharts |
+| **Icons** | Lucide React |
+| **Fonts** | Self-hosted TTF (VT323, Press Start 2P, Silkscreen, Pixelify Sans) |
+| **Deploy** | Docker ? Nomad |
+
+---
+
+## Project Structure
+
+```
+custom_dashboard/
++-- public/
+¦   +-- fonts/          # Self-hosted pixel fonts (no Google CDN)
++-- src/
+¦   +-- App.jsx         # Entire application (all components in one file)
+¦   +-- index.css       # Tailwind + @font-face + design tokens
++-- docs/
+¦   +-- adr/            # Architecture Decision Records
++-- GEMINI.md           # ?? Full project wiki — read this for deep context
++-- README.md           # This file
+```
+
+---
+
+## Architecture & Design Decisions
+
+Full architecture is documented in **[GEMINI.md](GEMINI.md)**.
+
+Key ADRs:
+- [ADR-001](docs/adr/ADR-001-custom-app-vs-homepage-hack.md) — Why we built from scratch instead of hacking gethomepage/homepage
+- [ADR-002](docs/adr/ADR-002-single-file-architecture.md) — Single App.jsx file approach
+- [ADR-003](docs/adr/ADR-003-mobile-stack-vs-desktop-grid.md) — Mobile swipe stack vs Desktop grid
+- [ADR-004](docs/adr/ADR-004-self-hosted-fonts.md) — Self-hosted fonts (air-gap safe)
+
+---
+
+## Features
+
+- ?? **Live system graphs** — CPU, Memory, Network I/O, Disk I/O (1s ticker, Recharts)
+- ?? **3D Flip Cards** — Network card flips to Server Health (CPU temp + UPS battery); Storage card flips to Disk I/O chart
+- ??? **Release Radar** — Auto-scrolling carousel + full-screen calendar modal (Sonarr/Radarr)
+- ??? **Weather widget** — Dynamically expands 2?7 days as screen width grows
+- ?? **Active Services** — 25 homelab services across 5 pages; swipe stack on mobile, CSS grid on desktop
+- ? **Luck of the Day** — Typewriter terminal animation on load
+- ?? **Cyber-pixel aesthetic** — VT323/Press Start 2P/Silkscreen fonts, neon glows, glass morphism
+
+---
+
+## Next Session — Data Integration
+
+Current status: **UI/UX complete. All data is dummy.**
+
+1. Wire **Netdata REST API** ? live hardware metrics
+2. Wire **Sonarr + Radarr API** ? real release calendar
+3. Optionally wire **Uptime Kuma** ? live service status dots
+4. Write **Dockerfile** (multi-stage: Node build ? Nginx serve)
+5. Write **Nomad job file**
+6. Decide **sidebar navigation** behavior
+
+See the handoff document for the copy-paste onboarding prompt for the next agent.
+
+---
+
+*Built with Antigravity + Gemini. August 2026.*
