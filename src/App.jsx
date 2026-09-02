@@ -120,7 +120,6 @@ export default function App() {
   const [isNavOpen, setIsNavOpen] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const carouselRef = useRef(null);
-  const scrollInterval = useRef(null);
   
   const [luckText, setLuckText] = useState('');
   const [showCV, setShowCV] = useState(false);
@@ -507,27 +506,41 @@ export default function App() {
     return () => scrollContainer?.removeEventListener('scroll', handleScroll);
   }, [lastScrollY]);
 
-  const startAutoScroll = () => {
-    clearInterval(scrollInterval.current);
-    scrollInterval.current = setInterval(() => {
-      if (carouselRef.current) {
-        const maxScroll = carouselRef.current.scrollWidth - carouselRef.current.clientWidth;
-        if (carouselRef.current.scrollLeft >= maxScroll - 20) {
-          carouselRef.current.scrollTo({ left: 0, behavior: 'smooth' });
-        } else {
-          carouselRef.current.scrollBy({ left: 320, behavior: 'smooth' });
-        }
-      }
-    }, 5500);
-  };
+  // Continuous ticker scroll animation (smooth gliding flow, pauses on hover/touch)
+  const isPausedRef = useRef(false);
+  const animFrameRef = useRef(null);
 
   useEffect(() => {
-    startAutoScroll();
-    return () => clearInterval(scrollInterval.current);
+    const el = carouselRef.current;
+    if (!el) return;
+
+    let lastTimestamp = null;
+    const speed = 40; // pixels per second (calm, highly readable news-ticker flow)
+
+    const step = (timestamp) => {
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      const delta = (timestamp - lastTimestamp) / 1000;
+      lastTimestamp = timestamp;
+
+      if (!isPausedRef.current && el) {
+        el.scrollLeft += speed * delta;
+        // Halfway reset for seamless infinite ticker flow
+        const half = el.scrollWidth / 2;
+        if (el.scrollLeft >= half) {
+          el.scrollLeft -= half;
+        }
+      }
+      animFrameRef.current = requestAnimationFrame(step);
+    };
+
+    animFrameRef.current = requestAnimationFrame(step);
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    };
   }, [releaseData]);
 
-  const pauseScroll = () => clearInterval(scrollInterval.current);
-  const resumeScroll = () => startAutoScroll();
+  const pauseScroll = () => { isPausedRef.current = true; };
+  const resumeScroll = () => { isPausedRef.current = false; };
 
   useEffect(() => {
     const fullText = "> LUCK: SYSTEM OPTIMAL. MAY YOUR BANDS BE WIDE AND YOUR LATENCY LOW.";
@@ -561,6 +574,20 @@ export default function App() {
         }
         .animate-hdd { animation: hddBlink 1.5s infinite; }
         .animate-hdd-delayed { animation: hddBlink 1.8s infinite 0.7s; }
+
+        @keyframes calendarGlow {
+          0%, 100% {
+            filter: drop-shadow(0 0 2px rgba(56, 189, 248, 0.4));
+            opacity: 0.75;
+          }
+          50% {
+            filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.95)) drop-shadow(0 0 16px rgba(56, 189, 248, 0.5));
+            opacity: 1;
+          }
+        }
+        .animate-calendar-glow {
+          animation: calendarGlow 2s ease-in-out infinite;
+        }
       `}</style>
       
       {showCV && (
@@ -805,16 +832,20 @@ export default function App() {
       </aside>
 
       {/* MOBILE BOTTOM NAVIGATION */}
-      <div className={`md:hidden fixed bottom-0 left-0 w-full transition-transform duration-500 ease-in-out z-50 ${isNavOpen ? 'translate-y-0' : 'translate-y-[calc(100%-1.2rem)]'}`}>
-        <div onClick={() => setIsNavOpen(!isNavOpen)} className="absolute -top-4 left-1/2 -translate-x-1/2 w-20 h-5 flex items-center justify-center cursor-pointer text-gray-500 hover:text-neon-cyan transition-colors">
-          <GripHorizontal size={24} className="drop-shadow-[0_0_8px_rgba(0,0,0,1)]" />
+      <div className={`md:hidden fixed bottom-0 left-0 w-full transition-transform duration-500 ease-in-out z-50 ${isNavOpen ? 'translate-y-0' : 'translate-y-[calc(100%-1.4rem)]'}`}>
+        {/* Centered touch handle tab */}
+        <div 
+          onClick={() => setIsNavOpen(!isNavOpen)} 
+          className="absolute -top-5 left-1/2 -translate-x-1/2 w-28 h-6 bg-[#08080a]/90 backdrop-blur-md border-t border-x border-white/10 rounded-t-xl flex items-center justify-center cursor-pointer text-gray-400 hover:text-neon-cyan transition-colors shadow-[0_-4px_12px_rgba(0,0,0,0.5)]"
+        >
+          <GripHorizontal size={20} className="pixel-icon drop-shadow-[0_0_6px_rgba(0,0,0,0.8)]" />
         </div>
-        <nav className="w-full h-16 bg-[#08080a]/95 backdrop-blur-2xl border-t border-white/10 flex justify-around items-center pb-safe shadow-[0_-8px_32px_rgba(0,0,0,0.8)]">
-          <MobileNavIcon icon={<Server size={20} />} label="INFRA" font="font-pixel" active />
-          <MobileNavIcon icon={<Home size={20} />} label="HOME" font="font-silkscreen" />
-          <MobileNavIcon icon={<Play size={20} />} label="MEDIA" font="font-silkscreen" />
-          <MobileNavIcon icon={<Search size={20} />} label="FIND" font="font-silkscreen" />
-          <MobileNavIcon icon={<Folder size={20} />} label="DOCS" font="font-pixel" />
+        <nav className="w-full h-14 bg-[#08080a]/95 backdrop-blur-2xl border-t border-white/10 flex justify-around items-center pb-safe shadow-[0_-8px_32px_rgba(0,0,0,0.8)]">
+          <MobileNavIcon icon={<Server size={22} />} active />
+          <MobileNavIcon icon={<Home size={22} />} />
+          <MobileNavIcon icon={<Play size={22} />} />
+          <MobileNavIcon icon={<Search size={22} />} />
+          <MobileNavIcon icon={<Folder size={22} />} />
         </nav>
       </div>
 
@@ -824,8 +855,8 @@ export default function App() {
         <header className="flex flex-col px-6 md:px-10 pt-8 pb-4 shrink-0 gap-4">
           <div className="flex justify-between items-center w-full">
             <div>
-              <h2 className="font-vt323 text-3xl md:text-4xl text-white tracking-widest drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">Hello, Tiago</h2>
-              <div className="font-silkscreen text-[0.65rem] md:text-xs text-neon-cyan mt-1 uppercase tracking-widest drop-shadow-[0_0_4px_rgba(56,189,248,0.5)]">
+              <h2 className="font-vt323 text-2xl md:text-3xl text-white tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">Hello, Tiago</h2>
+              <div className="font-silkscreen text-[0.65rem] md:text-xs text-neon-cyan mt-1 uppercase tracking-wider drop-shadow-[0_0_4px_rgba(56,189,248,0.5)]">
                 Command Center
               </div>
             </div>
@@ -860,7 +891,7 @@ export default function App() {
         <div className="flex-1 px-6 md:px-10 pb-28 pt-2 space-y-8 md:space-y-10">
           
           <section>
-            <div className="font-vt323 text-2xl text-gray-400 tracking-widest mb-4 uppercase flex items-center gap-3">
+            <div className="font-vt323 text-xl md:text-2xl text-gray-400 tracking-wider mb-4 uppercase flex items-center gap-2.5">
               <span className="text-neon-purple opacity-50">//</span> SYSTEM METRICS
             </div>
             
@@ -999,16 +1030,16 @@ export default function App() {
           </section>
 
           <section className="relative">
-            <div className="flex items-center gap-3.5 mb-4">
-              <div className="font-vt323 text-2xl text-gray-400 tracking-widest uppercase flex items-center gap-3">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="font-vt323 text-xl md:text-2xl text-gray-400 tracking-wider uppercase flex items-center gap-2.5">
                 <span className="text-neon-cyan opacity-50">//</span> RELEASE RADAR
               </div>
               <button 
                 onClick={() => setShowCalendar(true)}
-                className="group relative flex items-center justify-center p-1.5 rounded-lg border border-neon-cyan/40 bg-neon-cyan/10 hover:bg-neon-cyan/25 transition-all duration-300 shadow-[0_0_12px_rgba(56,189,248,0.4)] hover:shadow-[0_0_20px_rgba(56,189,248,0.8)] animate-pulse"
+                className="group relative flex items-center justify-center p-1 text-neon-cyan hover:text-white transition-colors animate-calendar-glow"
                 title="Open Scheduled Releases Calendar"
               >
-                <CalendarIcon size={17} className="pixel-icon text-neon-cyan drop-shadow-[0_0_6px_#38bdf8]" />
+                <CalendarIcon size={20} className="pixel-icon" />
               </button>
             </div>
             
@@ -1024,16 +1055,18 @@ export default function App() {
                 onWheel={pauseScroll} 
                 onTouchStart={pauseScroll}
                 onTouchEnd={resumeScroll}
-                className="flex gap-4 py-2 overflow-x-auto snap-x snap-mandatory no-scrollbar relative z-20 px-2 scroll-smooth"
+                className="flex gap-4 py-2 overflow-x-auto no-scrollbar relative z-20 px-2"
               >
-                {releaseData.map((item, idx) => <SlimCalendarCard key={idx} {...item} />)}
+                {[...releaseData, ...releaseData].map((item, idx) => (
+                  <SlimCalendarCard key={idx} {...item} />
+                ))}
               </div>
             </div>
           </section>
 
           <section>
             <div className="flex justify-between items-end mb-4">
-              <div className="font-vt323 text-2xl text-gray-400 tracking-widest uppercase flex items-center gap-3">
+              <div className="font-vt323 text-xl md:text-2xl text-gray-400 tracking-wider uppercase flex items-center gap-2.5">
                 <span className="text-neon-green opacity-50">//</span> ACTIVE SERVICES
               </div>
               
@@ -1124,15 +1157,15 @@ function SidebarIcon({ icon, active }) {
   );
 }
 
-function MobileNavIcon({ icon, label, font, active }) {
+function MobileNavIcon({ icon, active }) {
   return (
-    <div className={`relative flex flex-col items-center justify-center p-3 cursor-pointer group ${active ? 'text-neon-cyan' : 'text-gray-500 hover:text-gray-300'}`}>
-      <div className={`pixel-icon transition-transform mb-1.5 ${active ? 'drop-shadow-[0_0_8px_rgba(56,189,248,0.8)] scale-125' : ''}`}>
+    <div className={`relative flex items-center justify-center p-3.5 cursor-pointer group ${active ? 'text-neon-cyan' : 'text-gray-500 hover:text-gray-300'}`}>
+      {active && (
+        <div className="absolute top-1 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-neon-cyan shadow-[0_0_8px_#38bdf8] rounded-full"></div>
+      )}
+      <div className={`pixel-icon transition-transform ${active ? 'drop-shadow-[0_0_8px_rgba(56,189,248,0.9)] scale-110' : 'hover:scale-105'}`}>
         {icon}
       </div>
-      <span className={`${font} text-xs uppercase tracking-wider ${active ? 'text-neon-cyan drop-shadow-[0_0_4px_rgba(56,189,248,0.8)]' : ''}`}>
-        {label}
-      </span>
     </div>
   );
 }
