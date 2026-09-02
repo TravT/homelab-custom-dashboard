@@ -7,6 +7,19 @@ import {
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
 
+/**
+ * @file App.jsx
+ * @description Main command center dashboard for the homelab server.
+ * Integrates live hardware metrics from Netdata, dynamic calendar and release radar
+ * from Sonarr/Radarr/Jellyfin, live weather for Rio de Janeiro, dynamic health monitoring
+ * across Traefik and Nomad clusters, and quick discovery modals.
+ */
+
+/**
+ * Generates the clean baseline seed data for realtime area charts.
+ * Initializes at zero to prevent visual plateauing before live telemetry streams in.
+ * @returns {Array<{time: number, cpu: number, ram: number, lan: number, tailscale: number, diskIO: number, temp: number}>}
+ */
 const generateInitialData = () => {
   return [
     {
@@ -21,6 +34,9 @@ const generateInitialData = () => {
   ];
 };
 
+/**
+ * Fallback static release radar data rendered when API feeds are initializing.
+ */
 const defaultReleaseData = [
   { group: "TODAY", title: "Clevatess", desc: "S02E09 - 1080p", icon: <Play size={20}/>, color: "neon-cyan", grad: "from-[#38bdf8] to-[#818cf8]" },
   { group: "TODAY", title: "Re: ZERO", desc: "S04E15 - 1080p", icon: <Play size={20}/>, color: "neon-purple", grad: "from-[#a78bfa] to-[#f472b6]" },
@@ -28,6 +44,12 @@ const defaultReleaseData = [
   { group: "THIS MONTH", title: "Forgotten Island", desc: "Cinema Release", icon: <HardDrive size={20}/>, color: "neon-cyan", grad: "from-[#38bdf8] to-[#a78bfa]" },
 ];
 
+/**
+ * Maps standard WMO weather codes to stylized Lucide React weather icons.
+ * @param {number} wmoCode - WMO weather interpretation code from Open-Meteo.
+ * @param {number} [size=16] - Pixel icon size.
+ * @returns {JSX.Element}
+ */
 const getWeatherIcon = (wmoCode, size = 16) => {
   // Clear / Sunny
   if (wmoCode === 0) return <Sun size={size} className="text-amber-400" />;
@@ -47,6 +69,9 @@ const getWeatherIcon = (wmoCode, size = 16) => {
   return <CloudRain size={size} className="text-cyan-400" />;
 };
 
+/**
+ * Default fallback weather forecast for Rio de Janeiro.
+ */
 const defaultWeatherData = [
   { day: 'TODAY', temp: 24, icon: <Sun size={16} className="text-amber-400"/> },
   { day: 'MON', temp: 25, icon: <CloudRain size={16} className="text-blue-400"/> },
@@ -57,6 +82,11 @@ const defaultWeatherData = [
   { day: 'SAT', temp: 21, icon: <Sun size={16} className="text-amber-400"/> },
 ];
 
+/**
+ * Computes responsive breakpoint display classes for multi-day weather cards.
+ * @param {number} idx - Weather card day index.
+ * @returns {string} Tailwind CSS visibility classes.
+ */
 const getDisplayClass = (idx) => {
   if (idx < 2) return 'flex';
   if (idx === 2) return 'hidden sm:flex';
@@ -65,6 +95,11 @@ const getDisplayClass = (idx) => {
   if (idx === 5) return 'hidden xl:flex';
   return 'hidden 2xl:flex';
 };
+
+/**
+ * Complete directory catalog of all 25 registered homelab cluster services.
+ * Structured into 5 functional pages: Infra, Media, Ingestion, AI, and Remote Tools.
+ */
 
 const servicesCatalog = [
   // Page 1: Infrastructure & Core
@@ -264,8 +299,8 @@ export default function App() {
             diskIO: liveDiskIOMB,
             temp: Math.round(liveTemp)
           };
-          // Grow organically from zero up to 30 points, then slide
-          if (prev.length < 30) {
+          // Grow organically from zero up to 3 points, then slide window
+          if (prev.length < 3) {
             return [...prev, nextPoint];
           }
           return [...prev.slice(1), nextPoint];
@@ -1376,6 +1411,9 @@ function MobileNavIcon({ icon, active, onClick, title }) {
   );
 }
 
+/**
+ * Stylized telemetry sparkline card displaying real-time Netdata metrics with an AreaChart.
+ */
 function GraphBox({ title, value, dataKey, color, colorEnd, data, yDomain, icon = <Activity size={20} /> }) {
   return (
     <div className="bg-cyber-card/80 backdrop-blur-md p-5 md:p-6 rounded-xl border border-white/5 relative group overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.6)] h-full min-h-[140px] md:min-h-[160px]">
@@ -1404,6 +1442,9 @@ function GraphBox({ title, value, dataKey, color, colorEnd, data, yDomain, icon 
   );
 }
 
+/**
+ * 3D flipping card component for interactive toggling between front and back views (e.g. CPU vs Temp).
+ */
 function FlipCard({ front, back, isFlipped, onClick }) {
   return (
     <div className="relative h-full min-h-[140px] md:min-h-[160px] w-full [perspective:1000px] cursor-pointer group" onClick={onClick}>
@@ -1424,6 +1465,9 @@ function FlipCard({ front, back, isFlipped, onClick }) {
   );
 }
 
+/**
+ * Discrete segmented meter bar representing disk or memory capacity usage.
+ */
 function SegmentedBar({ filled, total, colorClass, emptyClass }) {
   return (
     <div className="flex gap-[4px] w-full h-2 md:h-2.5">
@@ -1432,6 +1476,9 @@ function SegmentedBar({ filled, total, colorClass, emptyClass }) {
   );
 }
 
+/**
+ * Release Radar ticker card leading to Jellyfin.
+ */
 function SlimCalendarCard({ group, title, desc, icon, color, grad }) {
   const jellyfinUrl = 'http://jellyfin.home.arpa/';
 
@@ -1461,6 +1508,10 @@ function SlimCalendarCard({ group, title, desc, icon, color, grad }) {
   );
 }
 
+/**
+ * Service row item in the Active Services cluster catalog.
+ * Renders status indicators (live green with ms latency or red strikethrough with OFFLINE badge).
+ */
 function ServiceRow({ name, desc, category, status = 'online', latency = '12ms', icon, url }) {
   const isOnline = status === 'online';
   return (
