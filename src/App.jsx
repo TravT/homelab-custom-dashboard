@@ -541,14 +541,12 @@ export default function App() {
     const nomadUrl = `http://${host}:4646/v1/jobs`;
 
     const checkServiceHealth = async () => {
-      const startTime = performance.now();
       try {
         const [traefikRes, nomadRes] = await Promise.allSettled([
           fetch(traefikUrl).then(r => r.json()),
           fetch(nomadUrl).then(r => r.json())
         ]);
-        const duration = Math.max(4, Math.round(performance.now() - startTime));
-
+        
         const healthMap = {};
 
         // 1. Process Traefik service health
@@ -559,12 +557,9 @@ export default function App() {
             const serverStatus = svc.serverStatus || {};
             const servers = Object.values(serverStatus);
             const isUp = svc.status === 'enabled' && (servers.length === 0 || servers.includes('UP'));
-            // Compute realistic, jittered latency per service
-            const charSum = cleanName.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-            const jitter = (charSum % 7) + (Math.floor(Math.random() * 5));
             healthMap[cleanName] = {
               status: isUp ? 'online' : 'offline',
-              latency: `${Math.max(3, duration + jitter)}ms`
+              latency: '...'
             };
           });
         }
@@ -574,34 +569,47 @@ export default function App() {
           nomadRes.value.forEach(job => {
             const jId = (job.ID || '').toLowerCase();
             const isRunning = job.Status === 'running';
-            if (jId === 'ollama') {
-              healthMap['ollama'] = { status: isRunning ? 'online' : 'offline', latency: isRunning ? `${duration + 4}ms` : 'Err' };
-            }
-            if (jId === 'llama-cpp' || jId === 'llama') {
-              healthMap['llama'] = { status: isRunning ? 'online' : 'offline', latency: isRunning ? `${duration + 6}ms` : 'Err' };
-            }
-            if (jId === 'mosquitto') {
-              healthMap['mosquitto'] = { status: isRunning ? 'online' : 'offline', latency: isRunning ? `${duration + 2}ms` : 'Err' };
-            }
+            if (jId === 'ollama') healthMap['ollama'] = { status: isRunning ? 'online' : 'offline', latency: '...' };
+            if (jId === 'llama-cpp' || jId === 'llama') healthMap['llama'] = { status: isRunning ? 'online' : 'offline', latency: '...' };
+            if (jId === 'mosquitto') healthMap['mosquitto'] = { status: isRunning ? 'online' : 'offline', latency: '...' };
           });
         }
 
         // 3. Normalized ID mappings for servicesCatalog
-        if (healthMap['traefik-dash'] || healthMap['api']) {
-          healthMap['traefik'] = { status: 'online', latency: `${duration}ms` };
-        }
-        if (healthMap['files']) {
-          healthMap['files'] = { status: healthMap['files'].status, latency: healthMap['files'].latency };
-        }
-        if (healthMap['wsscrcpy']) {
-          healthMap['wsscrcpy'] = { status: healthMap['wsscrcpy'].status, latency: healthMap['wsscrcpy'].latency };
-        }
-        if (healthMap['vscode']) {
-          healthMap['vscode'] = { status: healthMap['vscode'].status, latency: healthMap['vscode'].latency };
-        }
+        if (healthMap['traefik-dash'] || healthMap['api']) healthMap['traefik'] = { status: 'online', latency: '...' };
+        if (healthMap['files']) healthMap['files'] = { status: healthMap['files'].status, latency: '...' };
+        if (healthMap['wsscrcpy']) healthMap['wsscrcpy'] = { status: healthMap['wsscrcpy'].status, latency: '...' };
+        if (healthMap['vscode']) healthMap['vscode'] = { status: healthMap['vscode'].status, latency: '...' };
+
+        // Intermediate render so lights turn green/red instantly based on backend state
+        if (isMounted) setServiceHealth({ ...healthMap });
+
+        // 4. Real Ping measurements for all catalog services
+        const flatCatalog = servicesCatalog.flat();
+        await Promise.allSettled(flatCatalog.map(async (svc) => {
+          if (healthMap[svc.id] && healthMap[svc.id].status === 'offline') {
+            healthMap[svc.id].latency = 'Err';
+            return;
+          }
+          
+          const start = performance.now();
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2000);
+          try {
+            await fetch(svc.url, { mode: 'no-cors', cache: 'no-store', signal: controller.signal });
+            clearTimeout(timeoutId);
+            const duration = Math.max(1, Math.round(performance.now() - start));
+            if (!healthMap[svc.id]) healthMap[svc.id] = { status: 'online' };
+            healthMap[svc.id].latency = `${duration}ms`;
+          } catch (err) {
+            clearTimeout(timeoutId);
+            if (!healthMap[svc.id]) healthMap[svc.id] = { status: 'offline' };
+            healthMap[svc.id].latency = 'Err';
+          }
+        }));
 
         if (isMounted) {
-          setServiceHealth(healthMap);
+          setServiceHealth({ ...healthMap });
         }
       } catch (err) {
         console.error('Cluster health poll error:', err);
