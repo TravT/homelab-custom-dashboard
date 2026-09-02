@@ -15,6 +15,7 @@ const generateInitialData = () => {
     lan: 0.1,
     tailscale: 0.02,
     diskIO: 0.5,
+    temp: 52,
   }));
 };
 
@@ -145,7 +146,9 @@ export default function App() {
   const [gdriveActive, setGdriveActive] = useState(false);
   const [weatherData, setWeatherData] = useState(defaultWeatherData);
   const [releaseData, setReleaseData] = useState(defaultReleaseData);
-  const [calendarReleases, setCalendarReleases] = useState({});
+  const [rawReleases, setRawReleases] = useState([]);
+  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, items: [] });
 
   // Netdata real-time streaming for charts (CPU, RAM, Network I/O, Temp, Disk I/O)
   useEffect(() => {
@@ -206,9 +209,10 @@ export default function App() {
           liveTailscale = (recv + sent) / (8 * 1024);
         }
 
+        let liveTemp = 50;
         if (tempRes.status === 'fulfilled' && tempRes.value?.data?.[0]) {
-          const t = Number(tempRes.value.data[0][1]) || 50;
-          setCpuTemp(Math.round(t));
+          liveTemp = Number(tempRes.value.data[0][1]) || 50;
+          setCpuTemp(Math.round(liveTemp));
         }
 
         if (diskSpaceRes.status === 'fulfilled' && diskSpaceRes.value?.data?.[0]) {
@@ -264,7 +268,8 @@ export default function App() {
               ram: liveRam,
               lan: liveLan,
               tailscale: liveTailscale,
-              diskIO: liveDiskIOMB
+              diskIO: liveDiskIOMB,
+              temp: Math.round(liveTemp)
             }
           ];
         });
@@ -315,21 +320,24 @@ export default function App() {
     let isMounted = true;
     const fetchWeather = async () => {
       try {
-        const url = 'https://api.open-meteo.com/v1/forecast?latitude=-22.9068&longitude=-43.1729&daily=weathercode,temperature_2m_max&timezone=America/Sao_Paulo&forecast_days=7';
+        const url = 'https://api.open-meteo.com/v1/forecast?latitude=-22.9068&longitude=-43.1729&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max&timezone=auto&forecast_days=7';
         const res = await fetch(url);
         if (!res.ok) return;
         const data = await res.json();
         if (!isMounted || !data.daily?.time) return;
 
+        const currentTemp = data.current?.temperature_2m != null ? Math.round(data.current.temperature_2m) : Math.round(data.daily.temperature_2m_max[0]);
+        const currentCode = data.current?.weather_code != null ? data.current.weather_code : data.daily.weather_code[0];
+
         const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
         const formatted = data.daily.time.map((dateStr, idx) => {
           const date = new Date(dateStr + 'T12:00:00');
           const dayLabel = idx === 0 ? 'TODAY' : dayNames[date.getDay()];
-          const code = data.daily.weathercode[idx];
-          const tempMax = Math.round(data.daily.temperature_2m_max[idx]);
+          const code = idx === 0 ? currentCode : (data.daily.weather_code?.[idx] ?? 0);
+          const tempVal = idx === 0 ? currentTemp : Math.round(data.daily.temperature_2m_max[idx]);
           return {
             day: dayLabel,
-            temp: tempMax,
+            temp: tempVal,
             icon: getWeatherIcon(code, 16)
           };
         });
@@ -359,9 +367,11 @@ export default function App() {
     const fetchReleases = async () => {
       try {
         const now = new Date();
-        const startStr = now.toISOString().split('T')[0];
-        const nextMonth = new Date(now.getTime() + 35 * 24 * 60 * 60 * 1000);
-        const endStr = nextMonth.toISOString().split('T')[0];
+        // Fetch a broader window (past 30 days to next 180 days) for calendar month navigation
+        const pastDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const futureDate = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000);
+        const startStr = pastDate.toISOString().split('T')[0];
+        const endStr = futureDate.toISOString().split('T')[0];
 
         const [sonarrRes, radarrRes] = await Promise.allSettled([
           fetch(`http://${host}:8989/api/v3/calendar?apiKey=${sonarrKey}&includeSeries=true&start=${startStr}&end=${endStr}`).then(r => r.json()),
@@ -371,12 +381,12 @@ export default function App() {
         if (!isMounted) return;
 
         const allReleases = [];
-        const monthMap = {};
 
         if (sonarrRes.status === 'fulfilled' && Array.isArray(sonarrRes.value)) {
           sonarrRes.value.forEach(item => {
             const date = new Date(item.airDateUtc || item.airDate);
             const seriesName = item.series?.title || item.title || 'TV Episode';
+            const epTitle = item.title && item.title !== 'TBA' ? item.title : '';
             const seasonEp = `S${String(item.seasonNumber).padStart(2, '0')}E${String(item.episodeNumber).padStart(2, '0')}`;
             const quality = item.hasFile ? 'Downloaded' : 'Scheduled';
             const title = seriesName;
@@ -385,16 +395,12 @@ export default function App() {
             allReleases.push({
               date,
               title,
+              epTitle,
               desc,
+              status: quality,
+              seasonEp,
               type: 'tv'
             });
-
-            // Map day of month for current month
-            if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) {
-              const day = date.getDate();
-              if (!monthMap[day]) monthMap[day] = [];
-              monthMap[day].push({ title, type: 'tv' });
-            }
           });
         }
 
@@ -404,26 +410,27 @@ export default function App() {
             if (!dateStr) return;
             const date = new Date(dateStr);
             const title = item.title || 'Movie';
+            const quality = item.hasFile ? 'Downloaded' : 'Announced';
             const desc = item.hasFile ? 'Downloaded' : 'Cinema/Digital';
 
             allReleases.push({
               date,
               title,
               desc,
+              status: quality,
               type: 'movie'
             });
-
-            if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) {
-              const day = date.getDate();
-              if (!monthMap[day]) monthMap[day] = [];
-              monthMap[day].push({ title, type: 'movie' });
-            }
           });
         }
 
         if (allReleases.length > 0) {
           // Sort by date ascending
           allReleases.sort((a, b) => a.date - b.date);
+          setRawReleases(allReleases);
+
+          // Upcoming releases from now onwards
+          const futureOnly = allReleases.filter(r => r.date >= new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+          const list = futureOnly.length > 0 ? futureOnly : allReleases;
 
           // Group into TODAY, TOMORROW, THIS WEEK, THIS MONTH
           const cards = [];
@@ -431,19 +438,19 @@ export default function App() {
           const tomorrowDate = new Date(now.getTime() + 24 * 60 * 60 * 1000).getDate();
           const oneWeek = now.getTime() + 7 * 24 * 60 * 60 * 1000;
 
-          allReleases.slice(0, 8).forEach(rel => {
+          list.slice(0, 8).forEach(rel => {
             const relTime = rel.date.getTime();
             let group = 'SOON';
             let color = 'neon-cyan';
             let grad = 'from-[#38bdf8] to-[#a78bfa]';
             let icon = <Play size={20} />;
 
-            if (rel.date.getDate() === todayDate && rel.date.getMonth() === now.getMonth()) {
+            if (rel.date.getDate() === todayDate && rel.date.getMonth() === now.getMonth() && rel.date.getFullYear() === now.getFullYear()) {
               group = 'TODAY';
               color = 'neon-cyan';
               grad = 'from-[#38bdf8] to-[#818cf8]';
               icon = <Play size={20} />;
-            } else if (rel.date.getDate() === tomorrowDate && rel.date.getMonth() === now.getMonth()) {
+            } else if (rel.date.getDate() === tomorrowDate && rel.date.getMonth() === now.getMonth() && rel.date.getFullYear() === now.getFullYear()) {
               group = 'TOMORROW';
               color = 'neon-purple';
               grad = 'from-[#a78bfa] to-[#f472b6]';
@@ -473,7 +480,6 @@ export default function App() {
           if (cards.length > 0) {
             setReleaseData(cards);
           }
-          setCalendarReleases(monthMap);
         }
       } catch (err) {
         console.error('Calendar release fetch error:', err);
@@ -502,17 +508,21 @@ export default function App() {
 
   useEffect(() => {
     const startAutoScroll = () => {
+      clearInterval(scrollInterval.current);
       scrollInterval.current = setInterval(() => {
         if (carouselRef.current) {
           const maxScroll = carouselRef.current.scrollWidth - carouselRef.current.clientWidth;
-          if (carouselRef.current.scrollLeft >= maxScroll - 10) carouselRef.current.scrollTo({ left: 0, behavior: 'smooth' });
-          else carouselRef.current.scrollBy({ left: 280, behavior: 'smooth' });
+          if (carouselRef.current.scrollLeft >= maxScroll - 15) {
+            carouselRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+          } else {
+            carouselRef.current.scrollBy({ left: 300, behavior: 'smooth' });
+          }
         }
-      }, 4500);
+      }, 4000);
     };
     startAutoScroll();
     return () => clearInterval(scrollInterval.current);
-  }, []);
+  }, [releaseData]);
   const pauseScroll = () => clearInterval(scrollInterval.current);
 
   useEffect(() => {
@@ -576,47 +586,145 @@ export default function App() {
           <div className="bg-cyber-card/90 border border-neon-purple/30 shadow-[0_0_60px_rgba(167,139,250,0.2)] p-6 md:p-10 rounded-2xl max-w-4xl w-full relative flex flex-col h-full md:h-auto max-h-full">
             <button onClick={() => setShowCalendar(false)} className="absolute top-6 right-6 text-gray-500 hover:text-neon-purple transition-colors"><X size={28} className="pixel-icon" /></button>
             
-            <div className="font-vt323 text-3xl md:text-5xl text-white tracking-widest mb-2 flex items-center gap-4">
-              <CalendarIcon size={32} className="text-neon-purple pixel-icon" /> {new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }).toUpperCase()}
+            <div className="flex items-center justify-between mb-2 pr-12">
+              <div className="font-vt323 text-3xl md:text-5xl text-white tracking-widest flex items-center gap-4">
+                <CalendarIcon size={32} className="text-neon-purple pixel-icon" /> 
+                <span>{calendarDate.toLocaleString('en-US', { month: 'long', year: 'numeric' }).toUpperCase()}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setCalendarDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+                  className="p-1.5 bg-black/40 hover:bg-neon-purple/20 border border-white/10 hover:border-neon-purple/50 rounded text-gray-400 hover:text-white transition-colors"
+                  title="Previous Month"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <button 
+                  onClick={() => setCalendarDate(new Date())}
+                  className="px-2 py-1 bg-black/40 hover:bg-neon-cyan/20 border border-white/10 hover:border-neon-cyan/50 rounded font-pixel text-[0.6rem] text-gray-400 hover:text-neon-cyan transition-colors"
+                  title="Current Month"
+                >
+                  TODAY
+                </button>
+                <button 
+                  onClick={() => setCalendarDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+                  className="p-1.5 bg-black/40 hover:bg-neon-purple/20 border border-white/10 hover:border-neon-purple/50 rounded text-gray-400 hover:text-white transition-colors"
+                  title="Next Month"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </div>
             </div>
-            <div className="font-silkscreen text-xs md:text-sm text-neon-purple/80 uppercase tracking-widest mb-8">// Scheduled Releases</div>
+            <div className="font-silkscreen text-xs md:text-sm text-neon-purple/80 uppercase tracking-widest mb-6">// Scheduled Releases</div>
             
-            <div className="flex-1 overflow-x-auto no-scrollbar pb-4 w-full">
+            <div className="flex-1 overflow-x-auto no-scrollbar pb-4 w-full" onMouseLeave={() => setTooltip({ visible: false, x: 0, y: 0, items: [] })}>
               <div className="min-w-[600px] h-full flex flex-col">
                 <div className="grid grid-cols-7 gap-2 md:gap-4 flex-1">
                   {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
                     <div key={day} className="font-pixel text-[0.55rem] md:text-xs text-gray-500 text-center mb-2">{day}</div>
                   ))}
-                  {Array.from({length: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()}).map((_, i) => {
+
+                  {/* Empty offset days for the beginning of the month */}
+                  {Array.from({ length: new Date(calendarDate.getFullYear(), calendarDate.getMonth(), 1).getDay() }).map((_, i) => (
+                    <div key={`empty-${i}`} className="border border-white/5 bg-black/10 rounded-lg p-1.5 md:p-2 opacity-20 pointer-events-none md:aspect-square min-h-[80px]"></div>
+                  ))}
+
+                  {/* Month days calculated dynamically */}
+                  {Array.from({ length: new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 0).getDate() }).map((_, i) => {
                     const dayNum = i + 1;
-                    const dayItems = calendarReleases[dayNum] || [];
+                    const cYear = calendarDate.getFullYear();
+                    const cMonth = calendarDate.getMonth();
+                    
+                    // Filter rawReleases for this exact day/month/year
+                    const dayItems = rawReleases.filter(r => {
+                      return r.date.getDate() === dayNum && r.date.getMonth() === cMonth && r.date.getFullYear() === cYear;
+                    });
+
                     const hasItems = dayItems.length > 0;
-                    const isToday = dayNum === new Date().getDate();
+                    const realNow = new Date();
+                    const isToday = dayNum === realNow.getDate() && cMonth === realNow.getMonth() && cYear === realNow.getFullYear();
 
                     return (
                       <div 
                         key={i} 
-                        className={`border ${isToday ? 'border-neon-cyan/50 bg-neon-cyan/10 ring-1 ring-neon-cyan/30' : hasItems ? 'border-neon-purple/30 bg-neon-purple/5' : 'border-white/5 bg-black/20'} rounded-lg p-1.5 md:p-2 flex flex-col relative group hover:border-white/30 transition-colors md:aspect-square min-h-[80px]`}
+                        onMouseEnter={(e) => {
+                          if (hasItems) {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setTooltip({
+                              visible: true,
+                              x: rect.left + rect.width / 2,
+                              y: rect.top - 8,
+                              day: dayNum,
+                              monthStr: calendarDate.toLocaleString('en-US', { month: 'short' }),
+                              items: dayItems
+                            });
+                          } else {
+                            setTooltip({ visible: false, x: 0, y: 0, items: [] });
+                          }
+                        }}
+                        className={`border ${isToday ? 'border-neon-cyan/50 bg-neon-cyan/10 ring-1 ring-neon-cyan/30' : hasItems ? 'border-neon-purple/40 bg-neon-purple/10 hover:border-neon-purple' : 'border-white/5 bg-black/20'} rounded-lg p-1.5 md:p-2 flex flex-col relative group hover:border-white/30 transition-all md:aspect-square min-h-[80px] cursor-pointer`}
                       >
-                        <span className={`font-pixel text-[0.6rem] md:text-sm ${isToday ? 'text-neon-cyan font-bold' : 'text-gray-400'}`}>
+                        <span className={`font-pixel text-[0.6rem] md:text-sm ${isToday ? 'text-neon-cyan font-bold' : hasItems ? 'text-white' : 'text-gray-400'}`}>
                           {dayNum}
                         </span>
                         {dayItems.slice(0, 2).map((item, itemIdx) => (
                           <div 
                             key={itemIdx} 
-                            className={`mt-1 md:mt-2 w-full ${item.type === 'movie' ? 'bg-neon-cyan/10 border-l-[2px] md:border-l-[3px] border-neon-cyan text-neon-cyan' : 'bg-neon-green/10 border-l-[2px] md:border-l-[3px] border-neon-green text-neon-green'} p-1 rounded-sm shadow-[0_0_8px_rgba(34,197,94,0.1)]`}
+                            className={`mt-1 md:mt-2 w-full ${item.type === 'movie' ? 'bg-neon-cyan/15 border-l-[2px] md:border-l-[3px] border-neon-cyan text-neon-cyan' : 'bg-neon-green/15 border-l-[2px] md:border-l-[3px] border-neon-green text-neon-green'} p-1 rounded-sm shadow-[0_0_8px_rgba(34,197,94,0.1)]`}
                           >
                             <div className="font-pixel text-[0.4rem] md:text-[0.55rem] truncate leading-tight">
                               {item.title}
                             </div>
                           </div>
                         ))}
+                        {dayItems.length > 2 && (
+                          <div className="font-pixel text-[0.45rem] text-neon-purple mt-1 text-right">
+                            +{dayItems.length - 2} more
+                          </div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
               </div>
             </div>
+
+            {/* Flying hover tooltip */}
+            {tooltip.visible && tooltip.items.length > 0 && (
+              <div 
+                className="fixed z-[150] pointer-events-none -translate-x-1/2 -translate-y-full mb-2 bg-[#09090d]/95 backdrop-blur-xl border border-neon-cyan/40 shadow-[0_0_24px_rgba(56,189,248,0.25)] rounded-xl p-3 min-w-[220px] max-w-[320px] animate-in fade-in zoom-in-95 duration-150"
+                style={{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }}
+              >
+                <div className="flex items-center justify-between border-b border-white/10 pb-1.5 mb-2">
+                  <span className="font-pixel text-[0.6rem] text-neon-cyan tracking-widest uppercase">
+                    {tooltip.monthStr} {tooltip.day}
+                  </span>
+                  <span className="font-silkscreen text-[0.55rem] text-gray-500">
+                    {tooltip.items.length} RELEASE{tooltip.items.length > 1 ? 'S' : ''}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {tooltip.items.map((item, idx) => (
+                    <div key={idx} className="flex flex-col">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`font-pixel text-xs ${item.type === 'movie' ? 'text-neon-cyan' : 'text-neon-green'} leading-snug break-words`}>
+                          {item.title}
+                        </span>
+                        <span className="font-pixel text-[0.5rem] uppercase text-gray-500 bg-white/5 px-1 rounded">
+                          {item.type}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[0.55rem] font-silkscreen text-gray-400 mt-0.5">
+                        <span>{item.seasonEp || item.epTitle || item.desc}</span>
+                        <span className={item.status === 'Downloaded' ? 'text-neon-green' : 'text-amber-400'}>
+                          {item.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
           </div>
         </div>
@@ -725,8 +833,8 @@ export default function App() {
                             <div className="w-1.5 h-1.5 bg-neon-purple shadow-[0_0_6px_#a78bfa]"></div>
                           </div>
                         </div>
-                        <div className="font-pixel text-2xl text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">
-                          {graphData[graphData.length-1].lan.toFixed(2)} <span className="text-sm text-neon-green">MB/s</span>
+                        <div className="font-pixel text-2xl text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)] flex items-baseline">
+                          {graphData[graphData.length-1].lan.toFixed(2)} <span className="font-pixel text-2xl text-white ml-2">MB/s</span>
                         </div>
                       </div>
                       <div className="pixel-icon opacity-50 text-neon-green"><Activity size={20} /></div>
@@ -773,8 +881,8 @@ export default function App() {
                               <stop offset="95%" stopColor="#9f1239" stopOpacity={0}/>
                             </linearGradient>
                           </defs>
-                          <YAxis domain={[0, dataMax => Math.max(25, Math.ceil(dataMax * 1.35))]} hide />
-                          <Area type="monotone" isAnimationActive={false} dataKey="cpu" stroke="#f43f5e" fillOpacity={1} fill="url(#colorTemp)" strokeWidth={2} style={{ filter: 'drop-shadow(0 0 8px #f43f5e)' }} />
+                          <YAxis domain={[dataMin => Math.max(30, Math.floor(dataMin * 0.9)), dataMax => Math.ceil(dataMax * 1.1)]} hide />
+                          <Area type="monotone" isAnimationActive={false} dataKey="temp" stroke="#f43f5e" fillOpacity={1} fill="url(#colorTemp)" strokeWidth={2} style={{ filter: 'drop-shadow(0 0 8px #f43f5e)' }} />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
@@ -1011,8 +1119,17 @@ function SegmentedBar({ filled, total, colorClass, emptyClass }) {
 }
 
 function SlimCalendarCard({ group, title, desc, icon, color, grad }) {
+  const host = typeof window !== 'undefined' ? (window.location.hostname || '192.168.0.48') : '192.168.0.48';
+  const jellyfinUrl = `http://${host}:8096`;
+
   return (
-    <div className="min-w-[280px] md:min-w-[320px] snap-center h-16 md:h-20 bg-black/40 backdrop-blur-sm border border-white/5 rounded-lg pl-5 pr-2 flex items-center hover:border-white/20 hover:bg-black/60 transition-all cursor-pointer flex-shrink-0 group overflow-hidden relative shadow-[0_4px_12px_rgba(0,0,0,0.3)]">
+    <a 
+      href={jellyfinUrl}
+      target="_blank"
+      rel="noreferrer"
+      title={`Open Jellyfin - ${title}`}
+      className="min-w-[280px] md:min-w-[320px] snap-center h-16 md:h-20 bg-black/40 backdrop-blur-sm border border-white/5 rounded-lg pl-5 pr-2 flex items-center hover:border-white/20 hover:bg-black/60 transition-all cursor-pointer flex-shrink-0 group overflow-hidden relative shadow-[0_4px_12px_rgba(0,0,0,0.3)] no-underline"
+    >
       <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r ${grad} opacity-70 group-hover:opacity-100 transition-opacity`}></div>
       <div className="flex-1 flex items-center justify-between">
         <div className="flex flex-col justify-center">
@@ -1027,7 +1144,7 @@ function SlimCalendarCard({ group, title, desc, icon, color, grad }) {
         </div>
         <div className="w-10 h-10 flex items-center justify-center pixel-icon opacity-50 group-hover:opacity-100 group-hover:scale-110 transition-all" style={{ color: color === 'neon-cyan' ? '#38bdf8' : color === 'neon-purple' ? '#a78bfa' : '#22c55e' }}>{icon}</div>
       </div>
-    </div>
+    </a>
   );
 }
 
