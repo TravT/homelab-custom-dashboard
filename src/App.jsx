@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Server, Home, Play, Search, Zap, 
   Wifi, Folder, HardDrive, Download, Eye,
@@ -8,15 +8,17 @@ import {
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
 
 const generateInitialData = () => {
-  return Array.from({ length: 30 }, (_, i) => ({
-    time: i,
-    cpu: 15,
-    ram: 6.8,
-    lan: 0.1,
-    tailscale: 0.02,
-    diskIO: 0.5,
-    temp: 52,
-  }));
+  return [
+    {
+      time: 0,
+      cpu: 0,
+      ram: 0,
+      lan: 0,
+      tailscale: 0,
+      diskIO: 0,
+      temp: 0,
+    }
+  ];
 };
 
 const defaultReleaseData = [
@@ -119,7 +121,6 @@ const pagesData = [<Page1 />, <Page2 />, <Page3 />, <Page4 />, <Page5 />];
 export default function App() {
   const [isNavOpen, setIsNavOpen] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
-  const carouselRef = useRef(null);
   
   const [luckText, setLuckText] = useState('');
   const [showCV, setShowCV] = useState(false);
@@ -260,18 +261,20 @@ export default function App() {
 
         setGraphData(prev => {
           const last = prev[prev.length - 1];
-          return [
-            ...prev.slice(1),
-            {
-              time: (last?.time || 0) + 1,
-              cpu: liveCpu,
-              ram: liveRam,
-              lan: liveLan,
-              tailscale: liveTailscale,
-              diskIO: liveDiskIOMB,
-              temp: Math.round(liveTemp)
-            }
-          ];
+          const nextPoint = {
+            time: (last?.time || 0) + 1,
+            cpu: liveCpu,
+            ram: liveRam,
+            lan: liveLan,
+            tailscale: liveTailscale,
+            diskIO: liveDiskIOMB,
+            temp: Math.round(liveTemp)
+          };
+          // Grow organically from zero up to 30 points, then slide
+          if (prev.length < 30) {
+            return [...prev, nextPoint];
+          }
+          return [...prev.slice(1), nextPoint];
         });
       } catch (err) {
         console.error('Netdata polling error:', err);
@@ -506,41 +509,7 @@ export default function App() {
     return () => scrollContainer?.removeEventListener('scroll', handleScroll);
   }, [lastScrollY]);
 
-  // Continuous ticker scroll animation (smooth gliding flow, pauses on hover/touch)
-  const isPausedRef = useRef(false);
-  const animFrameRef = useRef(null);
 
-  useEffect(() => {
-    const el = carouselRef.current;
-    if (!el) return;
-
-    let lastTimestamp = null;
-    const speed = 40; // pixels per second (calm, highly readable news-ticker flow)
-
-    const step = (timestamp) => {
-      if (!lastTimestamp) lastTimestamp = timestamp;
-      const delta = (timestamp - lastTimestamp) / 1000;
-      lastTimestamp = timestamp;
-
-      if (!isPausedRef.current && el) {
-        el.scrollLeft += speed * delta;
-        // Halfway reset for seamless infinite ticker flow
-        const half = el.scrollWidth / 2;
-        if (el.scrollLeft >= half) {
-          el.scrollLeft -= half;
-        }
-      }
-      animFrameRef.current = requestAnimationFrame(step);
-    };
-
-    animFrameRef.current = requestAnimationFrame(step);
-    return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    };
-  }, [releaseData]);
-
-  const pauseScroll = () => { isPausedRef.current = true; };
-  const resumeScroll = () => { isPausedRef.current = false; };
 
   useEffect(() => {
     const fullText = "> LUCK: SYSTEM OPTIMAL. MAY YOUR BANDS BE WIDE AND YOUR LATENCY LOW.";
@@ -587,6 +556,24 @@ export default function App() {
         }
         .animate-calendar-glow {
           animation: calendarGlow 2s ease-in-out infinite;
+        }
+
+        @keyframes marqueeScroll {
+          0% {
+            transform: translate3d(0, 0, 0);
+          }
+          100% {
+            transform: translate3d(-50%, 0, 0);
+          }
+        }
+        .animate-marquee-track {
+          display: flex;
+          width: max-content;
+          animation: marqueeScroll 45s linear infinite;
+          will-change: transform;
+        }
+        .animate-marquee-track:hover {
+          animation-play-state: paused;
         }
       `}</style>
       
@@ -942,7 +929,7 @@ export default function App() {
                             <linearGradient id="colorLan" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#22c55e" stopOpacity={0.5}/><stop offset="95%" stopColor="#22c55e" stopOpacity={0}/></linearGradient>
                             <linearGradient id="colorTail" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#a78bfa" stopOpacity={0.5}/><stop offset="95%" stopColor="#a78bfa" stopOpacity={0}/></linearGradient>
                           </defs>
-                          <YAxis domain={[0, dataMax => Math.max(0.5, Math.ceil(dataMax * 1.35 * 10) / 10)]} hide />
+                          <YAxis domain={[0, dataMax => Math.max(0.05, Math.ceil(dataMax * 1.35 * 100) / 100)]} hide />
                           <Area type="monotone" isAnimationActive={false} dataKey="lan" stroke="#22c55e" fillOpacity={1} fill="url(#colorLan)" strokeWidth={1.5} style={{ filter: 'drop-shadow(0 0 6px #22c55e)' }} />
                           <Area type="monotone" isAnimationActive={false} dataKey="tailscale" stroke="#a78bfa" fillOpacity={1} fill="url(#colorTail)" strokeWidth={1.5} style={{ filter: 'drop-shadow(0 0 6px #a78bfa)' }} />
                         </AreaChart>
@@ -1021,7 +1008,7 @@ export default function App() {
                     color="#f59e0b" 
                     colorEnd="#d97706" 
                     data={graphData} 
-                    yDomain={[0, dataMax => Math.max(1, Math.ceil(dataMax * 1.4 * 10) / 10)]} 
+                    yDomain={[0, dataMax => Math.max(0.1, Math.ceil(dataMax * 1.35 * 100) / 100)]} 
                     icon={<HardDrive size={20} />} 
                   />
                 }
@@ -1043,20 +1030,11 @@ export default function App() {
               </button>
             </div>
             
-            <div className="w-full relative">
-              <div className="absolute left-0 top-0 bottom-0 w-8 md:w-12 bg-gradient-to-r from-[#08080a] to-transparent z-10 pointer-events-none"></div>
-              <div className="absolute right-0 top-0 bottom-0 w-8 md:w-12 bg-gradient-to-l from-[#08080a] to-transparent z-10 pointer-events-none"></div>
+            <div className="w-full relative overflow-hidden py-2">
+              <div className="absolute left-0 top-0 bottom-0 w-8 md:w-16 bg-gradient-to-r from-[#0a0a0c] to-transparent z-10 pointer-events-none"></div>
+              <div className="absolute right-0 top-0 bottom-0 w-8 md:w-16 bg-gradient-to-l from-[#0a0a0c] to-transparent z-10 pointer-events-none"></div>
               
-              <div 
-                ref={carouselRef} 
-                onMouseEnter={pauseScroll}
-                onMouseLeave={resumeScroll}
-                onPointerDown={pauseScroll} 
-                onWheel={pauseScroll} 
-                onTouchStart={pauseScroll}
-                onTouchEnd={resumeScroll}
-                className="flex gap-4 py-2 overflow-x-auto no-scrollbar relative z-20 px-2"
-              >
+              <div className="animate-marquee-track gap-4 px-2">
                 {[...releaseData, ...releaseData].map((item, idx) => (
                   <SlimCalendarCard key={idx} {...item} />
                 ))}
