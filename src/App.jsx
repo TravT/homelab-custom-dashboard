@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Server, Home, Play, Search, Zap, 
   Wifi, Folder, HardDrive, Download, Eye,
-  Activity, GripHorizontal, Sun, CloudRain, Database, Network, User, QrCode, X, Calendar as CalendarIcon,
+  Activity, GripHorizontal, Sun, CloudRain, Cloud, CloudLightning, CloudDrizzle, Database, Network, User, QrCode, X, Calendar as CalendarIcon,
   ChevronLeft, ChevronRight, MessageSquare, Cpu
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
@@ -25,14 +25,33 @@ const releaseData = [
   { group: "SOON", title: "Dune: Part Two", desc: "4K REMUX", icon: <HardDrive size={20}/>, color: "neon-cyan", grad: "from-[#38bdf8] to-[#a78bfa]" },
 ];
 
-const weatherData = [
-  { day: 'TODAY', temp: 28, icon: <Sun size={16}/> },
-  { day: 'MON', temp: 26, icon: <CloudRain size={16}/> },
-  { day: 'TUE', temp: 27, icon: <CloudRain size={16}/> },
-  { day: 'WED', temp: 24, icon: <Sun size={16}/> },
-  { day: 'THU', temp: 29, icon: <Sun size={16}/> },
-  { day: 'FRI', temp: 31, icon: <Sun size={16}/> },
-  { day: 'SAT', temp: 30, icon: <Sun size={16}/> },
+const getWeatherIcon = (wmoCode, size = 16) => {
+  // Clear / Sunny
+  if (wmoCode === 0) return <Sun size={size} className="text-amber-400" />;
+  // Mainly clear, partly cloudy
+  if (wmoCode === 1 || wmoCode === 2) return <Sun size={size} className="text-amber-300" />;
+  // Overcast
+  if (wmoCode === 3) return <Cloud size={size} className="text-gray-400" />;
+  // Fog
+  if (wmoCode === 45 || wmoCode === 48) return <Cloud size={size} className="text-gray-300" />;
+  // Drizzle
+  if (wmoCode >= 51 && wmoCode <= 57) return <CloudDrizzle size={size} className="text-cyan-400" />;
+  // Rain
+  if (wmoCode >= 61 && wmoCode <= 67) return <CloudRain size={size} className="text-blue-400" />;
+  // Thunderstorm
+  if (wmoCode >= 95) return <CloudLightning size={size} className="text-purple-400" />;
+  // Default rain / clouds
+  return <CloudRain size={size} className="text-cyan-400" />;
+};
+
+const defaultWeatherData = [
+  { day: 'TODAY', temp: 24, icon: <Sun size={16} className="text-amber-400"/> },
+  { day: 'MON', temp: 25, icon: <CloudRain size={16} className="text-blue-400"/> },
+  { day: 'TUE', temp: 28, icon: <Sun size={16} className="text-amber-400"/> },
+  { day: 'WED', temp: 24, icon: <CloudDrizzle size={16} className="text-cyan-400"/> },
+  { day: 'THU', temp: 22, icon: <CloudRain size={16} className="text-blue-400"/> },
+  { day: 'FRI', temp: 20, icon: <Cloud size={16} className="text-gray-400"/> },
+  { day: 'SAT', temp: 21, icon: <Sun size={16} className="text-amber-400"/> },
 ];
 
 const getDisplayClass = (idx) => {
@@ -124,6 +143,7 @@ export default function App() {
   const [diskIOVal, setDiskIOVal] = useState({ val: '0.0', unit: 'MB/s' });
   const [nvmeActive, setNvmeActive] = useState(false);
   const [gdriveActive, setGdriveActive] = useState(false);
+  const [weatherData, setWeatherData] = useState(defaultWeatherData);
 
   // Netdata real-time streaming for charts (CPU, RAM, Network I/O, Temp, Disk I/O)
   useEffect(() => {
@@ -285,6 +305,45 @@ export default function App() {
     return () => {
       isMounted = false;
       clearInterval(bInterval);
+    };
+  }, []);
+
+  // Fetch live weather for Rio de Janeiro from Open-Meteo (lat: -22.9068, lon: -43.1729)
+  useEffect(() => {
+    let isMounted = true;
+    const fetchWeather = async () => {
+      try {
+        const url = 'https://api.open-meteo.com/v1/forecast?latitude=-22.9068&longitude=-43.1729&daily=weathercode,temperature_2m_max&timezone=America/Sao_Paulo&forecast_days=7';
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!isMounted || !data.daily?.time) return;
+
+        const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+        const formatted = data.daily.time.map((dateStr, idx) => {
+          const date = new Date(dateStr + 'T12:00:00');
+          const dayLabel = idx === 0 ? 'TODAY' : dayNames[date.getDay()];
+          const code = data.daily.weathercode[idx];
+          const tempMax = Math.round(data.daily.temperature_2m_max[idx]);
+          return {
+            day: dayLabel,
+            temp: tempMax,
+            icon: getWeatherIcon(code, 16)
+          };
+        });
+
+        setWeatherData(formatted);
+      } catch (err) {
+        console.error('Weather fetch error:', err);
+      }
+    };
+
+    fetchWeather();
+    // Refresh weather once every 30 minutes
+    const wInterval = setInterval(fetchWeather, 30 * 60 * 1000);
+    return () => {
+      isMounted = false;
+      clearInterval(wInterval);
     };
   }, []);
 
