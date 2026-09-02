@@ -66,51 +66,51 @@ const getDisplayClass = (idx) => {
 
 const Page1 = () => (
   <div className="flex flex-col">
-    <ServiceRow name="Traefik" desc="Core Reverse Proxy" category="Infra" status="online" icon={<Activity size={18} />} url="#" />
-    <ServiceRow name="Pi-hole" desc="DNS & Ad Blocking" category="Infra" status="online" icon={<Wifi size={18} />} url="#" />
-    <ServiceRow name="Uptime Kuma" desc="Status Monitoring" category="Infra" status="online" icon={<Activity size={18} />} url="#" />
-    <ServiceRow name="Home Assistant" desc="Smart Home Hub" category="Smart Home" status="online" icon={<Home size={18} />} url="#" />
-    <ServiceRow name="Mosquitto" desc="MQTT Broker" category="Smart Home" status="online" icon={<Database size={18} />} url="#" />
+    <ServiceRow name="Traefik" desc="Core Reverse Proxy" category="Infra" status="online" icon={<Activity size={18} />} url="http://traefik.home.arpa/" />
+    <ServiceRow name="Pi-hole" desc="DNS & Ad Blocking" category="Infra" status="online" icon={<Wifi size={18} />} url="http://pihole.home.arpa/admin/" />
+    <ServiceRow name="Uptime Kuma" desc="Status Monitoring" category="Infra" status="online" icon={<Activity size={18} />} url="http://uptime-kuma.home.arpa/" />
+    <ServiceRow name="Home Assistant" desc="Smart Home Hub" category="Smart Home" status="online" icon={<Home size={18} />} url="http://homeassistant.home.arpa/" />
+    <ServiceRow name="Mosquitto" desc="MQTT Broker" category="Smart Home" status="online" icon={<Database size={18} />} url="http://ha.home.arpa/" />
   </div>
 );
 
 const Page2 = () => (
   <div className="flex flex-col">
-    <ServiceRow name="Jellyfin" desc="Main Media Server" category="Media" status="online" icon={<Play size={18} />} url="#" />
-    <ServiceRow name="Jellyseerr" desc="Media Requests" category="Media" status="online" icon={<Search size={18} />} url="#" />
-    <ServiceRow name="Sonarr" desc="TV Management" category="Media Mgmt" status="online" icon={<Search size={18} />} url="#" />
-    <ServiceRow name="Radarr" desc="Movie Management" category="Media Mgmt" status="offline" icon={<Search size={18} />} url="#" />
-    <ServiceRow name="Bazarr" desc="Subtitle Management" category="Media Mgmt" status="online" icon={<Folder size={18} />} url="#" />
+    <ServiceRow name="Jellyfin" desc="Main Media Server" category="Media" status="online" icon={<Play size={18} />} url="http://jellyfin.home.arpa/" />
+    <ServiceRow name="Jellyseerr" desc="Media Requests" category="Media" status="online" icon={<Search size={18} />} url="http://jellyseerr.home.arpa/" />
+    <ServiceRow name="Sonarr" desc="TV Management" category="Media Mgmt" status="online" icon={<Search size={18} />} url="http://sonarr.home.arpa/" />
+    <ServiceRow name="Radarr" desc="Movie Management" category="Media Mgmt" status="online" icon={<Search size={18} />} url="http://radarr.home.arpa/" />
+    <ServiceRow name="Bazarr" desc="Subtitle Management" category="Media Mgmt" status="online" icon={<Folder size={18} />} url="http://bazarr.home.arpa/" />
   </div>
 );
 
 const Page3 = () => (
   <div className="flex flex-col">
-    <ServiceRow name="qBittorrent" desc="Download Client" category="Downloads" status="online" icon={<Download size={18} />} url="#" />
-    <ServiceRow name="Prowlarr" desc="Indexer Management" category="Downloads" status="online" icon={<Database size={18} />} url="#" />
-    <ServiceRow name="FlareSolverr" desc="Cloudflare Bypass" category="Downloads" status="online" icon={<Network size={18} />} url="#" />
-    <ServiceRow name="RDT-Client" desc="Real-Debrid Client" category="Downloads" status="online" icon={<Download size={18} />} url="#" />
-    <ServiceRow name="Maintainerr" desc="Media Cleanup" category="Media Mgmt" status="online" icon={<Folder size={18} />} url="#" />
+    <ServiceRow name="qBittorrent" desc="Download Client" category="Downloads" status="online" icon={<Download size={18} />} url="http://qbittorrent.home.arpa/" />
+    <ServiceRow name="Prowlarr" desc="Indexer Management" category="Downloads" status="online" icon={<Database size={18} />} url="http://prowlarr.home.arpa/" />
+    <ServiceRow name="FlareSolverr" desc="Cloudflare Bypass" category="Downloads" status="online" icon={<Network size={18} />} url="http://flaresolverr.home.arpa/" />
+    <ServiceRow name="RDT-Client" desc="Real-Debrid Client" category="Downloads" status="online" icon={<Download size={18} />} url="http://rdt.home.arpa/" />
+    <ServiceRow name="Maintainerr" desc="Media Cleanup" category="Media Mgmt" status="online" icon={<Folder size={18} />} url="http://maintainerr.home.arpa/" />
   </div>
 );
 
 const Page4 = () => (
   <div className="flex flex-col">
-    <ServiceRow name="Open WebUI" desc="Local LLM Interface" category="AI" status="online" icon={<MessageSquare size={18} />} url="#" />
-    <ServiceRow name="Ollama" desc="LLM Runner" category="AI" status="online" icon={<Cpu size={18} />} url="#" />
-    <ServiceRow name="Llama.cpp" desc="Model Inference" category="AI" status="online" icon={<Cpu size={18} />} url="#" />
-    <ServiceRow name="Paperless-ngx" desc="Document OCR & Mgmt" category="Docs" status="online" icon={<Folder size={18} />} url="#" />
-    <ServiceRow name="FileBrowser" desc="Web File Manager" category="Docs" status="online" icon={<Folder size={18} />} url="#" />
+    <ServiceRow name="Open WebUI" desc="Local LLM Interface" category="AI" status="online" icon={<MessageSquare size={18} />} url="http://openwebui.home.arpa/" />
+    <ServiceRow name="Ollama" desc="LLM Runner" category="AI" status="online" icon={<Cpu size={18} />} url="http://ollama.home.arpa/" />
+    <ServiceRow name="Llama.cpp" desc="Model Inference" category="AI" status="online" icon={<Cpu size={18} />} url="http://llama.home.arpa/" />
+    <ServiceRow name="Paperless-ngx" desc="Document OCR & Mgmt" category="Docs" status="online" icon={<Folder size={18} />} url="http://paperless.home.arpa/" />
+    <ServiceRow name="FileBrowser" desc="Web File Manager" category="Docs" status="online" icon={<Folder size={18} />} url="http://filebrowser.home.arpa/" />
   </div>
 );
 
 const Page5 = () => (
   <div className="flex flex-col">
-    <ServiceRow name="Guacamole" desc="Remote Desktop" category="Infra" status="online" icon={<Network size={18} />} url="#" />
-    <ServiceRow name="ws-scrcpy" desc="Android Mirroring" category="Infra" status="online" icon={<Network size={18} />} url="#" />
-    <ServiceRow name="Netdata" desc="Hardware Metrics" category="Infra" status="online" icon={<Activity size={18} />} url="#" />
-    <ServiceRow name="Dozzle" desc="Docker Logs" category="Infra" status="online" icon={<Database size={18} />} url="#" />
-    <ServiceRow name="n8n" desc="Workflow Automation" category="Smart Home" status="online" icon={<Activity size={18} />} url="#" />
+    <ServiceRow name="Guacamole" desc="Remote Desktop" category="Infra" status="online" icon={<Network size={18} />} url="http://guacamole.home.arpa/" />
+    <ServiceRow name="ws-scrcpy" desc="Android Mirroring" category="Infra" status="online" icon={<Network size={18} />} url="http://ws-scrcpy.home.arpa/" />
+    <ServiceRow name="Netdata" desc="Hardware Metrics" category="Infra" status="online" icon={<Activity size={18} />} url="http://netdata.home.arpa/" />
+    <ServiceRow name="Dozzle" desc="Docker Logs" category="Infra" status="online" icon={<Database size={18} />} url="http://dozzle.home.arpa/" />
+    <ServiceRow name="n8n" desc="Workflow Automation" category="Smart Home" status="online" icon={<Activity size={18} />} url="http://n8n.home.arpa/" />
   </div>
 );
 
@@ -149,6 +149,7 @@ export default function App() {
   const [rawReleases, setRawReleases] = useState([]);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, items: [] });
+  const [selectedMobileDay, setSelectedMobileDay] = useState(null);
 
   // Netdata real-time streaming for charts (CPU, RAM, Network I/O, Temp, Disk I/O)
   useEffect(() => {
@@ -506,24 +507,27 @@ export default function App() {
     return () => scrollContainer?.removeEventListener('scroll', handleScroll);
   }, [lastScrollY]);
 
-  useEffect(() => {
-    const startAutoScroll = () => {
-      clearInterval(scrollInterval.current);
-      scrollInterval.current = setInterval(() => {
-        if (carouselRef.current) {
-          const maxScroll = carouselRef.current.scrollWidth - carouselRef.current.clientWidth;
-          if (carouselRef.current.scrollLeft >= maxScroll - 15) {
-            carouselRef.current.scrollTo({ left: 0, behavior: 'smooth' });
-          } else {
-            carouselRef.current.scrollBy({ left: 300, behavior: 'smooth' });
-          }
+  const startAutoScroll = () => {
+    clearInterval(scrollInterval.current);
+    scrollInterval.current = setInterval(() => {
+      if (carouselRef.current) {
+        const maxScroll = carouselRef.current.scrollWidth - carouselRef.current.clientWidth;
+        if (carouselRef.current.scrollLeft >= maxScroll - 20) {
+          carouselRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+        } else {
+          carouselRef.current.scrollBy({ left: 320, behavior: 'smooth' });
         }
-      }, 4000);
-    };
+      }
+    }, 5500);
+  };
+
+  useEffect(() => {
     startAutoScroll();
     return () => clearInterval(scrollInterval.current);
   }, [releaseData]);
+
   const pauseScroll = () => clearInterval(scrollInterval.current);
+  const resumeScroll = () => startAutoScroll();
 
   useEffect(() => {
     const fullText = "> LUCK: SYSTEM OPTIMAL. MAY YOUR BANDS BE WIDE AND YOUR LATENCY LOW.";
@@ -582,26 +586,31 @@ export default function App() {
       )}
 
       {showCalendar && (
-        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-2xl flex items-center justify-center p-4 md:p-10 animate-in fade-in duration-300">
-          <div className="bg-cyber-card/90 border border-neon-purple/30 shadow-[0_0_60px_rgba(167,139,250,0.2)] p-6 md:p-10 rounded-2xl max-w-4xl w-full relative flex flex-col h-full md:h-auto max-h-full">
-            <button onClick={() => setShowCalendar(false)} className="absolute top-6 right-6 text-gray-500 hover:text-neon-purple transition-colors"><X size={28} className="pixel-icon" /></button>
+        <div className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-2xl flex items-center justify-center p-2 sm:p-4 md:p-10 animate-in fade-in duration-300">
+          <div className="bg-cyber-card/95 border border-neon-purple/30 shadow-[0_0_60px_rgba(167,139,250,0.2)] p-4 sm:p-6 md:p-8 rounded-2xl max-w-4xl w-full relative flex flex-col h-full md:h-auto max-h-[92vh] overflow-hidden">
+            <button 
+              onClick={() => { setShowCalendar(false); setSelectedMobileDay(null); }} 
+              className="absolute top-4 right-4 sm:top-6 sm:right-6 text-gray-500 hover:text-neon-purple transition-colors z-20"
+            >
+              <X size={26} className="pixel-icon" />
+            </button>
             
-            <div className="flex items-center justify-between mb-2 pr-12">
-              <div className="font-vt323 text-3xl md:text-5xl text-white tracking-widest flex items-center gap-4">
-                <CalendarIcon size={32} className="text-neon-purple pixel-icon" /> 
-                <span>{calendarDate.toLocaleString('en-US', { month: 'long', year: 'numeric' }).toUpperCase()}</span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2 pr-10 sm:pr-14">
+              <div className="font-vt323 text-3xl sm:text-4xl md:text-5xl text-white tracking-widest flex items-center gap-3">
+                <CalendarIcon size={28} className="text-neon-purple pixel-icon shrink-0" /> 
+                <span className="truncate">{calendarDate.toLocaleString('en-US', { month: 'long', year: 'numeric' }).toUpperCase()}</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 self-start sm:self-auto">
                 <button 
                   onClick={() => setCalendarDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
                   className="p-1.5 bg-black/40 hover:bg-neon-purple/20 border border-white/10 hover:border-neon-purple/50 rounded text-gray-400 hover:text-white transition-colors"
                   title="Previous Month"
                 >
-                  <ChevronLeft size={20} />
+                  <ChevronLeft size={18} />
                 </button>
                 <button 
                   onClick={() => setCalendarDate(new Date())}
-                  className="px-2 py-1 bg-black/40 hover:bg-neon-cyan/20 border border-white/10 hover:border-neon-cyan/50 rounded font-pixel text-[0.6rem] text-gray-400 hover:text-neon-cyan transition-colors"
+                  className="px-2.5 py-1 bg-black/40 hover:bg-neon-cyan/20 border border-white/10 hover:border-neon-cyan/50 rounded font-pixel text-[0.55rem] sm:text-[0.6rem] text-gray-400 hover:text-neon-cyan transition-colors"
                   title="Current Month"
                 >
                   TODAY
@@ -611,22 +620,22 @@ export default function App() {
                   className="p-1.5 bg-black/40 hover:bg-neon-purple/20 border border-white/10 hover:border-neon-purple/50 rounded text-gray-400 hover:text-white transition-colors"
                   title="Next Month"
                 >
-                  <ChevronRight size={20} />
+                  <ChevronRight size={18} />
                 </button>
               </div>
             </div>
-            <div className="font-silkscreen text-xs md:text-sm text-neon-purple/80 uppercase tracking-widest mb-6">// Scheduled Releases</div>
+            <div className="font-silkscreen text-[0.65rem] sm:text-xs md:text-sm text-neon-purple/80 uppercase tracking-widest mb-4">// Scheduled Releases</div>
             
             <div className="flex-1 overflow-x-auto no-scrollbar pb-4 w-full" onMouseLeave={() => setTooltip({ visible: false, x: 0, y: 0, items: [] })}>
-              <div className="min-w-[600px] h-full flex flex-col">
-                <div className="grid grid-cols-7 gap-2 md:gap-4 flex-1">
+              <div className="min-w-[550px] sm:min-w-[600px] h-full flex flex-col">
+                <div className="grid grid-cols-7 gap-1.5 sm:gap-2 md:gap-3 flex-1">
                   {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
-                    <div key={day} className="font-pixel text-[0.55rem] md:text-xs text-gray-500 text-center mb-2">{day}</div>
+                    <div key={day} className="font-pixel text-[0.5rem] sm:text-[0.55rem] md:text-xs text-gray-500 text-center mb-1">{day}</div>
                   ))}
 
                   {/* Empty offset days for the beginning of the month */}
                   {Array.from({ length: new Date(calendarDate.getFullYear(), calendarDate.getMonth(), 1).getDay() }).map((_, i) => (
-                    <div key={`empty-${i}`} className="border border-white/5 bg-black/10 rounded-lg p-1.5 md:p-2 opacity-20 pointer-events-none md:aspect-square min-h-[80px]"></div>
+                    <div key={`empty-${i}`} className="border border-white/5 bg-black/10 rounded-lg p-1.5 opacity-20 pointer-events-none md:aspect-square min-h-[65px] sm:min-h-[75px] md:min-h-[80px]"></div>
                   ))}
 
                   {/* Month days calculated dynamically */}
@@ -647,6 +656,15 @@ export default function App() {
                     return (
                       <div 
                         key={i} 
+                        onClick={() => {
+                          if (hasItems) {
+                            setSelectedMobileDay({
+                              day: dayNum,
+                              monthStr: calendarDate.toLocaleString('en-US', { month: 'short' }),
+                              items: dayItems
+                            });
+                          }
+                        }}
                         onMouseEnter={(e) => {
                           if (hasItems) {
                             const rect = e.currentTarget.getBoundingClientRect();
@@ -662,15 +680,15 @@ export default function App() {
                             setTooltip({ visible: false, x: 0, y: 0, items: [] });
                           }
                         }}
-                        className={`border ${isToday ? 'border-neon-cyan/50 bg-neon-cyan/10 ring-1 ring-neon-cyan/30' : hasItems ? 'border-neon-purple/40 bg-neon-purple/10 hover:border-neon-purple' : 'border-white/5 bg-black/20'} rounded-lg p-1.5 md:p-2 flex flex-col relative group hover:border-white/30 transition-all md:aspect-square min-h-[80px] cursor-pointer`}
+                        className={`border ${isToday ? 'border-neon-cyan/50 bg-neon-cyan/10 ring-1 ring-neon-cyan/30' : hasItems ? 'border-neon-purple/40 bg-neon-purple/10 hover:border-neon-purple' : 'border-white/5 bg-black/20'} rounded-lg p-1 sm:p-1.5 md:p-2 flex flex-col relative group hover:border-white/30 transition-all md:aspect-square min-h-[65px] sm:min-h-[75px] md:min-h-[80px] cursor-pointer`}
                       >
-                        <span className={`font-pixel text-[0.6rem] md:text-sm ${isToday ? 'text-neon-cyan font-bold' : hasItems ? 'text-white' : 'text-gray-400'}`}>
+                        <span className={`font-pixel text-[0.55rem] sm:text-[0.6rem] md:text-sm ${isToday ? 'text-neon-cyan font-bold' : hasItems ? 'text-white' : 'text-gray-400'}`}>
                           {dayNum}
                         </span>
                         {dayItems.slice(0, 2).map((item, itemIdx) => (
                           <div 
                             key={itemIdx} 
-                            className={`mt-1 md:mt-2 w-full ${item.type === 'movie' ? 'bg-neon-cyan/15 border-l-[2px] md:border-l-[3px] border-neon-cyan text-neon-cyan' : 'bg-neon-green/15 border-l-[2px] md:border-l-[3px] border-neon-green text-neon-green'} p-1 rounded-sm shadow-[0_0_8px_rgba(34,197,94,0.1)]`}
+                            className={`mt-1 w-full ${item.type === 'movie' ? 'bg-neon-cyan/15 border-l-[2px] md:border-l-[3px] border-neon-cyan text-neon-cyan' : 'bg-neon-green/15 border-l-[2px] md:border-l-[3px] border-neon-green text-neon-green'} p-1 rounded-sm shadow-[0_0_8px_rgba(34,197,94,0.1)]`}
                           >
                             <div className="font-pixel text-[0.4rem] md:text-[0.55rem] truncate leading-tight">
                               {item.title}
@@ -678,7 +696,7 @@ export default function App() {
                           </div>
                         ))}
                         {dayItems.length > 2 && (
-                          <div className="font-pixel text-[0.45rem] text-neon-purple mt-1 text-right">
+                          <div className="font-pixel text-[0.4rem] md:text-[0.45rem] text-neon-purple mt-0.5 text-right">
                             +{dayItems.length - 2} more
                           </div>
                         )}
@@ -689,10 +707,10 @@ export default function App() {
               </div>
             </div>
 
-            {/* Flying hover tooltip */}
+            {/* Desktop Flying Hover Tooltip (Hidden on touch/small screens) */}
             {tooltip.visible && tooltip.items.length > 0 && (
               <div 
-                className="fixed z-[150] pointer-events-none -translate-x-1/2 -translate-y-full mb-2 bg-[#09090d]/95 backdrop-blur-xl border border-neon-cyan/40 shadow-[0_0_24px_rgba(56,189,248,0.25)] rounded-xl p-3 min-w-[220px] max-w-[320px] animate-in fade-in zoom-in-95 duration-150"
+                className="hidden md:block fixed z-[150] pointer-events-none -translate-x-1/2 -translate-y-full mb-2 bg-[#09090d]/95 backdrop-blur-xl border border-neon-cyan/40 shadow-[0_0_24px_rgba(56,189,248,0.25)] rounded-xl p-3 min-w-[220px] max-w-[320px] animate-in fade-in zoom-in-95 duration-150"
                 style={{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }}
               >
                 <div className="flex items-center justify-between border-b border-white/10 pb-1.5 mb-2">
@@ -721,6 +739,53 @@ export default function App() {
                         </span>
                       </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Mobile Bottom Sheet Drawer on Tap */}
+            {selectedMobileDay && (
+              <div className="md:hidden absolute inset-x-0 bottom-0 z-[160] bg-[#09090d]/98 backdrop-blur-2xl border-t-2 border-neon-cyan/50 p-4 rounded-t-2xl shadow-[0_-12px_40px_rgba(0,0,0,0.95)] animate-in slide-in-from-bottom duration-250 max-h-[65%] overflow-y-auto">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-neon-cyan shadow-[0_0_8px_#38bdf8]"></span>
+                    <span className="font-pixel text-xs text-neon-cyan uppercase tracking-wider">
+                      {selectedMobileDay.monthStr} {selectedMobileDay.day} — {selectedMobileDay.items.length} Release{selectedMobileDay.items.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <button 
+                    onClick={() => setSelectedMobileDay(null)}
+                    className="text-gray-400 hover:text-white p-1 rounded-lg bg-white/5"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                
+                <div className="space-y-3">
+                  {selectedMobileDay.items.map((item, idx) => (
+                    <a 
+                      key={idx}
+                      href="http://jellyfin.home.arpa/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex flex-col p-2.5 rounded-lg bg-white/[0.03] border border-white/5 hover:border-neon-cyan/40 transition-colors no-underline"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className={`font-pixel text-xs ${item.type === 'movie' ? 'text-neon-cyan' : 'text-neon-green'} leading-snug`}>
+                          {item.title}
+                        </span>
+                        <span className="font-pixel text-[0.5rem] uppercase text-gray-400 bg-white/10 px-1.5 py-0.5 rounded">
+                          {item.type}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[0.6rem] font-silkscreen text-gray-400 mt-1.5">
+                        <span>{item.seasonEp || item.epTitle || item.desc}</span>
+                        <span className={item.status === 'Downloaded' ? 'text-neon-green font-pixel' : 'text-amber-400 font-pixel'}>
+                          {item.status}
+                        </span>
+                      </div>
+                    </a>
                   ))}
                 </div>
               </div>
@@ -934,15 +999,16 @@ export default function App() {
           </section>
 
           <section className="relative">
-            <div className="flex items-center justify-between mb-4 pr-2">
+            <div className="flex items-center gap-3.5 mb-4">
               <div className="font-vt323 text-2xl text-gray-400 tracking-widest uppercase flex items-center gap-3">
                 <span className="text-neon-cyan opacity-50">//</span> RELEASE RADAR
               </div>
               <button 
                 onClick={() => setShowCalendar(true)}
-                className="text-gray-500 hover:text-neon-cyan transition-colors"
+                className="group relative flex items-center justify-center p-1.5 rounded-lg border border-neon-cyan/40 bg-neon-cyan/10 hover:bg-neon-cyan/25 transition-all duration-300 shadow-[0_0_12px_rgba(56,189,248,0.4)] hover:shadow-[0_0_20px_rgba(56,189,248,0.8)] animate-pulse"
+                title="Open Scheduled Releases Calendar"
               >
-                <CalendarIcon size={20} className="pixel-icon drop-shadow-[0_0_4px_rgba(56,189,248,0.5)]" />
+                <CalendarIcon size={17} className="pixel-icon text-neon-cyan drop-shadow-[0_0_6px_#38bdf8]" />
               </button>
             </div>
             
@@ -950,7 +1016,16 @@ export default function App() {
               <div className="absolute left-0 top-0 bottom-0 w-8 md:w-12 bg-gradient-to-r from-[#08080a] to-transparent z-10 pointer-events-none"></div>
               <div className="absolute right-0 top-0 bottom-0 w-8 md:w-12 bg-gradient-to-l from-[#08080a] to-transparent z-10 pointer-events-none"></div>
               
-              <div ref={carouselRef} onPointerDown={pauseScroll} onWheel={pauseScroll} onTouchStart={pauseScroll} className="flex gap-4 py-2 overflow-x-auto snap-x snap-mandatory no-scrollbar relative z-20 px-2">
+              <div 
+                ref={carouselRef} 
+                onMouseEnter={pauseScroll}
+                onMouseLeave={resumeScroll}
+                onPointerDown={pauseScroll} 
+                onWheel={pauseScroll} 
+                onTouchStart={pauseScroll}
+                onTouchEnd={resumeScroll}
+                className="flex gap-4 py-2 overflow-x-auto snap-x snap-mandatory no-scrollbar relative z-20 px-2 scroll-smooth"
+              >
                 {releaseData.map((item, idx) => <SlimCalendarCard key={idx} {...item} />)}
               </div>
             </div>
@@ -1119,8 +1194,7 @@ function SegmentedBar({ filled, total, colorClass, emptyClass }) {
 }
 
 function SlimCalendarCard({ group, title, desc, icon, color, grad }) {
-  const host = typeof window !== 'undefined' ? (window.location.hostname || '192.168.0.48') : '192.168.0.48';
-  const jellyfinUrl = `http://${host}:8096`;
+  const jellyfinUrl = 'http://jellyfin.home.arpa/';
 
   return (
     <a 
