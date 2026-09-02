@@ -10,10 +10,11 @@ import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
 const generateInitialData = () => {
   return Array.from({ length: 30 }, (_, i) => ({
     time: i,
-    cpu: 25 + Math.random() * 15,
-    ram: 16 + Math.random() * 2,
-    lan: 20 + Math.random() * 20,
-    tailscale: 10 + Math.random() * 10,
+    cpu: 15,
+    ram: 6.8,
+    lan: 0.1,
+    tailscale: 0.02,
+    diskIO: 0.5,
   }));
 };
 
@@ -113,22 +114,178 @@ export default function App() {
   const [isFlippedStorage, setIsFlippedStorage] = useState(false);
   const [isFlippedNetwork, setIsFlippedNetwork] = useState(false);
 
+  // Live telemetry state
+  const [cpuTemp, setCpuTemp] = useState(50);
+  const [batteryStats, setBatteryStats] = useState({ percent: 100, plugged: true });
+  const [storageStats, setStorageStats] = useState({
+    nvme: { total_gb: 465.4, used_gb: 223.1, percent: 47.9 },
+    gdrive: { total_tb: 5.0, used_tb: 0.65, percent: 13.0 }
+  });
+  const [diskIOVal, setDiskIOVal] = useState({ val: '0.0', unit: 'MB/s' });
+  const [nvmeActive, setNvmeActive] = useState(false);
+  const [gdriveActive, setGdriveActive] = useState(false);
+
+  // Netdata real-time streaming for charts (CPU, RAM, Network I/O, Temp, Disk I/O)
   useEffect(() => {
-    const interval = setInterval(() => {
-      setGraphData(prev => {
-        const last = prev[prev.length - 1];
-        const nextCpu = Math.max(5, Math.min(95, last.cpu + (Math.random() * 40 - 20)));
-        const nextRam = Math.max(12, Math.min(32, last.ram + (Math.random() * 2 - 1)));
-        const nextLan = Math.max(2, Math.min(100, last.lan + (Math.random() * 50 - 25)));
-        const nextTailscale = Math.max(0, Math.min(40, last.tailscale + (Math.random() * 20 - 10)));
-        
-        return [
-          ...prev.slice(1),
-          { time: last.time + 1, cpu: nextCpu, ram: nextRam, lan: nextLan, tailscale: nextTailscale }
-        ];
-      });
-    }, 1000); 
-    return () => clearInterval(interval);
+    let isMounted = true;
+    const netdataHost = window.location.hostname || '192.168.0.48';
+    const netdataBase = `http://${netdataHost}:19999/api/v1`;
+
+    const fetchNetdataMetrics = async () => {
+      try {
+        const [cpuRes, ramRes, lanRes, tailRes, tempRes, diskSpaceRes, diskIoRes] = await Promise.allSettled([
+          fetch(`${netdataBase}/data?chart=system.cpu&points=1&after=-3`).then(r => r.json()),
+          fetch(`${netdataBase}/data?chart=system.ram&points=1&after=-3`).then(r => r.json()),
+          fetch(`${netdataBase}/data?chart=net.enp0s31f6&points=1&after=-3`).then(r => r.json()),
+          fetch(`${netdataBase}/data?chart=net.tailscale0&points=1&after=-3`).then(r => r.json()),
+          fetch(`${netdataBase}/data?chart=sensors.temperature_coretemp-isa-0000_temp1_Package_id_0_input&points=1&after=-3`).then(r => r.json()),
+          fetch(`${netdataBase}/data?chart=disk_space./&points=1&after=-5`).then(r => r.json()),
+          fetch(`${netdataBase}/data?chart=disk.sda&points=1&after=-3`).then(r => r.json())
+        ]);
+
+        if (!isMounted) return;
+
+        let liveCpu = 20;
+        if (cpuRes.status === 'fulfilled' && cpuRes.value?.data?.[0]) {
+          const labels = cpuRes.value.labels;
+          const vals = cpuRes.value.data[0];
+          // Sum non-idle CPU usage
+          const total = labels.reduce((acc, label, idx) => {
+            if (idx > 0 && label !== 'idle') return acc + (Number(vals[idx]) || 0);
+            return acc;
+          }, 0);
+          liveCpu = Math.max(1, Math.min(100, total));
+        }
+
+        let liveRam = 8.0;
+        if (ramRes.status === 'fulfilled' && ramRes.value?.data?.[0]) {
+          const labels = ramRes.value.labels;
+          const vals = ramRes.value.data[0];
+          const usedIdx = labels.indexOf('used');
+          if (usedIdx !== -1) {
+            liveRam = (Number(vals[usedIdx]) || 0) / 1024;
+          }
+        }
+
+        let liveLan = 0;
+        if (lanRes.status === 'fulfilled' && lanRes.value?.data?.[0]) {
+          const vals = lanRes.value.data[0];
+          // Netdata returns kilobits/s for network interfaces
+          const recv = Math.abs(Number(vals[1]) || 0);
+          const sent = Math.abs(Number(vals[2]) || 0);
+          liveLan = (recv + sent) / (8 * 1024); // convert kbps to MB/s
+        }
+
+        let liveTailscale = 0;
+        if (tailRes.status === 'fulfilled' && tailRes.value?.data?.[0]) {
+          const vals = tailRes.value.data[0];
+          const recv = Math.abs(Number(vals[1]) || 0);
+          const sent = Math.abs(Number(vals[2]) || 0);
+          liveTailscale = (recv + sent) / (8 * 1024);
+        }
+
+        if (tempRes.status === 'fulfilled' && tempRes.value?.data?.[0]) {
+          const t = Number(tempRes.value.data[0][1]) || 50;
+          setCpuTemp(Math.round(t));
+        }
+
+        if (diskSpaceRes.status === 'fulfilled' && diskSpaceRes.value?.data?.[0]) {
+          const labels = diskSpaceRes.value.labels;
+          const vals = diskSpaceRes.value.data[0];
+          const availIdx = labels.indexOf('avail');
+          const usedIdx = labels.indexOf('used');
+          if (availIdx !== -1 && usedIdx !== -1) {
+            const avail = Number(vals[availIdx]) || 0;
+            const used = Number(vals[usedIdx]) || 0;
+            const total = avail + used;
+            if (total > 0) {
+              setStorageStats(prev => ({
+                ...prev,
+                nvme: {
+                  total_gb: Math.round(total),
+                  used_gb: Math.round(used),
+                  percent: Math.round((used / total) * 100)
+                }
+              }));
+            }
+          }
+        }
+
+        // Live Disk I/O (reads + writes from disk.sda in KiB/s)
+        let liveDiskIOMB = 0;
+        if (diskIoRes.status === 'fulfilled' && diskIoRes.value?.data?.[0]) {
+          const vals = diskIoRes.value.data[0];
+          const reads = Math.abs(Number(vals[1]) || 0);
+          const writes = Math.abs(Number(vals[2]) || 0);
+          const totalKiB = reads + writes;
+          liveDiskIOMB = totalKiB / 1024; // convert KiB/s to MB/s
+
+          if (liveDiskIOMB >= 1) {
+            setDiskIOVal({ val: liveDiskIOMB.toFixed(1), unit: 'MB/s' });
+          } else {
+            setDiskIOVal({ val: Math.round(totalKiB).toString(), unit: 'KB/s' });
+          }
+
+          // Real disk activity indicators: active when > 50 KB/s throughput
+          setNvmeActive(totalKiB > 50);
+          // GDrive activity: active when tailscale or sustained LAN transfer happens
+          setGdriveActive(liveTailscale > 0.1 || (liveLan > 2 && totalKiB > 200));
+        }
+
+        setGraphData(prev => {
+          const last = prev[prev.length - 1];
+          return [
+            ...prev.slice(1),
+            {
+              time: (last?.time || 0) + 1,
+              cpu: liveCpu,
+              ram: liveRam,
+              lan: liveLan,
+              tailscale: liveTailscale,
+              diskIO: liveDiskIOMB
+            }
+          ];
+        });
+      } catch (err) {
+        console.error('Netdata polling error:', err);
+      }
+    };
+
+    fetchNetdataMetrics();
+    const interval = setInterval(fetchNetdataMetrics, 1500);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Poll Battery & host power stats from sys-stats-api
+  useEffect(() => {
+    let isMounted = true;
+    const host = window.location.hostname || '192.168.0.48';
+    const fetchBattery = async () => {
+      try {
+        const res = await fetch(`http://${host}:8005/stats`);
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted) {
+            setBatteryStats({
+              percent: Math.round(data.battery_percent ?? 100),
+              plugged: !!data.power_plugged
+            });
+          }
+        }
+      } catch {
+        // Fallback gracefully if not reachable
+      }
+    };
+
+    fetchBattery();
+    const bInterval = setInterval(fetchBattery, 10000);
+    return () => {
+      isMounted = false;
+      clearInterval(bInterval);
+    };
   }, []);
 
   useEffect(() => {
@@ -323,8 +480,24 @@ export default function App() {
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-              <GraphBox title="Processor" value={`${Math.round(graphData[graphData.length-1].cpu)}%`} dataKey="cpu" color="#38bdf8" colorEnd="#0284c7" data={graphData} yDomain={[0, 100]} />
-              <GraphBox title="Memory" value={`${graphData[graphData.length-1].ram.toFixed(1)} GB`} dataKey="ram" color="#a78bfa" colorEnd="#7e22ce" data={graphData} yDomain={[0, 32]} />
+              <GraphBox 
+                title="Processor" 
+                value={`${Math.round(graphData[graphData.length-1].cpu)}%`} 
+                dataKey="cpu" 
+                color="#38bdf8" 
+                colorEnd="#0284c7" 
+                data={graphData} 
+                yDomain={[0, dataMax => Math.max(25, Math.ceil(dataMax * 1.35))]} 
+              />
+              <GraphBox 
+                title="Memory" 
+                value={`${graphData[graphData.length-1].ram.toFixed(1)} GB`} 
+                dataKey="ram" 
+                color="#a78bfa" 
+                colorEnd="#7e22ce" 
+                data={graphData} 
+                yDomain={[dataMin => Math.max(0, Math.floor(dataMin * 0.85)), dataMax => Math.ceil(dataMax * 1.15)]} 
+              />
               
               <FlipCard 
                 isFlipped={isFlippedNetwork} 
@@ -341,7 +514,7 @@ export default function App() {
                           </div>
                         </div>
                         <div className="font-pixel text-2xl text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">
-                          {Math.round(graphData[graphData.length-1].lan)} <span className="text-sm text-neon-green">MB/s</span>
+                          {graphData[graphData.length-1].lan.toFixed(2)} <span className="text-sm text-neon-green">MB/s</span>
                         </div>
                       </div>
                       <div className="pixel-icon opacity-50 text-neon-green"><Activity size={20} /></div>
@@ -353,7 +526,7 @@ export default function App() {
                             <linearGradient id="colorLan" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#22c55e" stopOpacity={0.5}/><stop offset="95%" stopColor="#22c55e" stopOpacity={0}/></linearGradient>
                             <linearGradient id="colorTail" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#a78bfa" stopOpacity={0.5}/><stop offset="95%" stopColor="#a78bfa" stopOpacity={0}/></linearGradient>
                           </defs>
-                          <YAxis domain={[0, dataMax => Math.ceil(dataMax * 1.3)]} hide />
+                          <YAxis domain={[0, dataMax => Math.max(0.5, Math.ceil(dataMax * 1.35 * 10) / 10)]} hide />
                           <Area type="monotone" isAnimationActive={false} dataKey="lan" stroke="#22c55e" fillOpacity={1} fill="url(#colorLan)" strokeWidth={1.5} style={{ filter: 'drop-shadow(0 0 6px #22c55e)' }} />
                           <Area type="monotone" isAnimationActive={false} dataKey="tailscale" stroke="#a78bfa" fillOpacity={1} fill="url(#colorTail)" strokeWidth={1.5} style={{ filter: 'drop-shadow(0 0 6px #a78bfa)' }} />
                         </AreaChart>
@@ -369,12 +542,14 @@ export default function App() {
                            Server Health <Zap size={12} className="text-neon-cyan" />
                         </div>
                         <div className="font-pixel text-xl md:text-2xl text-neon-red drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]">
-                          62°<span className="text-sm text-neon-red">C</span>
+                          {cpuTemp}°<span className="text-sm text-neon-red">C</span>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-pixel text-[0.55rem] md:text-[0.65rem] text-neon-green mb-1.5 drop-shadow-[0_0_4px_rgba(34,197,94,0.5)]">UPS BATT</div>
-                        <div className="font-pixel text-xl md:text-2xl text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]">100<span className="text-sm">%</span></div>
+                        <div className="font-pixel text-[0.55rem] md:text-[0.65rem] text-neon-green mb-1.5 drop-shadow-[0_0_4px_rgba(34,197,94,0.5)]">
+                          {batteryStats.plugged ? 'AC POWER' : 'BATTERY'}
+                        </div>
+                        <div className="font-pixel text-xl md:text-2xl text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]">{batteryStats.percent}<span className="text-sm">%</span></div>
                       </div>
                     </div>
                     <div className="absolute bottom-0 left-0 right-0 h-28 opacity-50 group-hover:opacity-100 transition-opacity duration-500">
@@ -386,7 +561,7 @@ export default function App() {
                               <stop offset="95%" stopColor="#9f1239" stopOpacity={0}/>
                             </linearGradient>
                           </defs>
-                          <YAxis domain={[0, 100]} hide />
+                          <YAxis domain={[0, dataMax => Math.max(25, Math.ceil(dataMax * 1.35))]} hide />
                           <Area type="monotone" isAnimationActive={false} dataKey="cpu" stroke="#f43f5e" fillOpacity={1} fill="url(#colorTemp)" strokeWidth={2} style={{ filter: 'drop-shadow(0 0 8px #f43f5e)' }} />
                         </AreaChart>
                       </ResponsiveContainer>
@@ -404,26 +579,35 @@ export default function App() {
                         <div className="flex justify-between items-center mb-3">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-silkscreen text-gray-400 uppercase tracking-widest">Local NVMe</span>
-                            <div className="w-1.5 h-1.5 bg-neon-cyan rounded-full animate-hdd text-neon-cyan"></div>
+                            <div className={`w-1.5 h-1.5 bg-neon-cyan rounded-full transition-opacity duration-300 ${nvmeActive ? 'animate-hdd shadow-[0_0_8px_#38bdf8] opacity-100' : 'opacity-30'}`}></div>
                           </div>
-                          <span className="text-xs font-pixel text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]">65%</span>
+                          <span className="text-xs font-pixel text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]">{storageStats.nvme.percent}%</span>
                         </div>
-                        <SegmentedBar filled={6} total={10} colorClass="bg-neon-cyan shadow-[0_0_8px_#38bdf8]" emptyClass="bg-[#27272a]" />
+                        <SegmentedBar filled={Math.round(storageStats.nvme.percent / 10)} total={10} colorClass="bg-neon-cyan shadow-[0_0_8px_#38bdf8]" emptyClass="bg-[#27272a]" />
                       </div>
                       <div>
                         <div className="flex justify-between items-center mb-3">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-silkscreen text-gray-400 uppercase tracking-widest">Google Drive</span>
-                            <div className="w-1.5 h-1.5 bg-neon-red rounded-full animate-hdd-delayed text-neon-red"></div>
+                            <div className={`w-1.5 h-1.5 bg-neon-red rounded-full transition-opacity duration-300 ${gdriveActive ? 'animate-hdd-delayed shadow-[0_0_8px_#f43f5e] opacity-100' : 'opacity-30'}`}></div>
                           </div>
-                          <span className="text-xs font-pixel text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]">82%</span>
+                          <span className="text-xs font-pixel text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]">{storageStats.gdrive.percent}%</span>
                         </div>
-                        <SegmentedBar filled={8} total={10} colorClass="bg-neon-red shadow-[0_0_8px_#f43f5e]" emptyClass="bg-[#27272a]" />
+                        <SegmentedBar filled={Math.max(1, Math.round(storageStats.gdrive.percent / 10))} total={10} colorClass="bg-neon-red shadow-[0_0_8px_#f43f5e]" emptyClass="bg-[#27272a]" />
                       </div>
                   </div>
                 }
                 back={
-                  <GraphBox title="Disk I/O" value="412 MB/s" dataKey="tailscale" color="#f59e0b" colorEnd="#d97706" data={graphData} yDomain={[0, 100]} icon={<HardDrive size={20} />} />
+                  <GraphBox 
+                    title="Disk I/O" 
+                    value={`${diskIOVal.val} ${diskIOVal.unit}`} 
+                    dataKey="diskIO" 
+                    color="#f59e0b" 
+                    colorEnd="#d97706" 
+                    data={graphData} 
+                    yDomain={[0, dataMax => Math.max(1, Math.ceil(dataMax * 1.4 * 10) / 10)]} 
+                    icon={<HardDrive size={20} />} 
+                  />
                 }
               />
             </div>
