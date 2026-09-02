@@ -108,7 +108,7 @@ const servicesCatalog = [
     { id: 'pihole', name: 'Pi-hole', desc: 'DNS & Ad Blocking', category: 'Infra', icon: <Wifi size={18} />, url: 'http://pihole.home.arpa/admin/' },
     { id: 'kuma', name: 'Uptime Kuma', desc: 'Status Monitoring', category: 'Infra', icon: <Activity size={18} />, url: 'http://uptime-kuma.home.arpa/' },
     { id: 'ha', name: 'Home Assistant', desc: 'Smart Home Hub', category: 'Smart Home', icon: <Home size={18} />, url: 'http://homeassistant.home.arpa/' },
-    { id: 'mosquitto', name: 'Mosquitto', desc: 'MQTT Broker', category: 'Smart Home', icon: <Database size={18} />, url: 'http://ha.home.arpa/' },
+    { id: 'vscode', name: 'VSCode Server', desc: 'Web Code Editor', category: 'Dev Tools', icon: <Cpu size={18} />, url: 'http://vscode.home.arpa/' },
   ],
   // Page 2: Media Center
   [
@@ -299,11 +299,18 @@ export default function App() {
             diskIO: liveDiskIOMB,
             temp: Math.round(liveTemp)
           };
-          // Grow organically from zero up to 3 points, then slide window
-          if (prev.length < 3) {
-            return [...prev, nextPoint];
+          
+          // If we still have the initial time:0 zero seed, remove it once we have 3 real dots
+          let currentList = prev;
+          if (currentList.length >= 3 && currentList[0]?.time === 0) {
+            currentList = currentList.slice(1);
           }
-          return [...prev.slice(1), nextPoint];
+
+          // Maintain a rolling window of up to 30 real data points
+          if (currentList.length < 30) {
+            return [...currentList, nextPoint];
+          }
+          return [...currentList.slice(1), nextPoint];
         });
       } catch (err) {
         console.error('Netdata polling error:', err);
@@ -588,6 +595,9 @@ export default function App() {
         }
         if (healthMap['wsscrcpy']) {
           healthMap['wsscrcpy'] = { status: healthMap['wsscrcpy'].status, latency: healthMap['wsscrcpy'].latency };
+        }
+        if (healthMap['vscode']) {
+          healthMap['vscode'] = { status: healthMap['vscode'].status, latency: healthMap['vscode'].latency };
         }
 
         if (isMounted) {
