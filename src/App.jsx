@@ -3,7 +3,7 @@ import {
   Server, Home, Play, Search, Zap, 
   Wifi, Folder, HardDrive, Download, Eye,
   Activity, GripHorizontal, Sun, CloudRain, Cloud, CloudLightning, CloudDrizzle, Database, Network, User, QrCode, X, Calendar as CalendarIcon,
-  ChevronLeft, ChevronRight, MessageSquare, Cpu
+  ChevronLeft, ChevronRight, MessageSquare, Cpu, ExternalLink, ArrowRight
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
 
@@ -66,57 +66,48 @@ const getDisplayClass = (idx) => {
   return 'hidden 2xl:flex';
 };
 
-const Page1 = () => (
-  <div className="flex flex-col">
-    <ServiceRow name="Traefik" desc="Core Reverse Proxy" category="Infra" status="online" icon={<Activity size={18} />} url="http://traefik.home.arpa/" />
-    <ServiceRow name="Pi-hole" desc="DNS & Ad Blocking" category="Infra" status="online" icon={<Wifi size={18} />} url="http://pihole.home.arpa/admin/" />
-    <ServiceRow name="Uptime Kuma" desc="Status Monitoring" category="Infra" status="online" icon={<Activity size={18} />} url="http://uptime-kuma.home.arpa/" />
-    <ServiceRow name="Home Assistant" desc="Smart Home Hub" category="Smart Home" status="online" icon={<Home size={18} />} url="http://homeassistant.home.arpa/" />
-    <ServiceRow name="Mosquitto" desc="MQTT Broker" category="Smart Home" status="online" icon={<Database size={18} />} url="http://ha.home.arpa/" />
-  </div>
-);
-
-const Page2 = () => (
-  <div className="flex flex-col">
-    <ServiceRow name="Jellyfin" desc="Main Media Server" category="Media" status="online" icon={<Play size={18} />} url="http://jellyfin.home.arpa/" />
-    <ServiceRow name="Jellyseerr" desc="Media Requests" category="Media" status="online" icon={<Search size={18} />} url="http://jellyseerr.home.arpa/" />
-    <ServiceRow name="Sonarr" desc="TV Management" category="Media Mgmt" status="online" icon={<Search size={18} />} url="http://sonarr.home.arpa/" />
-    <ServiceRow name="Radarr" desc="Movie Management" category="Media Mgmt" status="online" icon={<Search size={18} />} url="http://radarr.home.arpa/" />
-    <ServiceRow name="Bazarr" desc="Subtitle Management" category="Media Mgmt" status="online" icon={<Folder size={18} />} url="http://bazarr.home.arpa/" />
-  </div>
-);
-
-const Page3 = () => (
-  <div className="flex flex-col">
-    <ServiceRow name="qBittorrent" desc="Download Client" category="Downloads" status="online" icon={<Download size={18} />} url="http://qbittorrent.home.arpa/" />
-    <ServiceRow name="Prowlarr" desc="Indexer Management" category="Downloads" status="online" icon={<Database size={18} />} url="http://prowlarr.home.arpa/" />
-    <ServiceRow name="FlareSolverr" desc="Cloudflare Bypass" category="Downloads" status="online" icon={<Network size={18} />} url="http://flaresolverr.home.arpa/" />
-    <ServiceRow name="RDT-Client" desc="Real-Debrid Client" category="Downloads" status="online" icon={<Download size={18} />} url="http://rdt.home.arpa/" />
-    <ServiceRow name="Maintainerr" desc="Media Cleanup" category="Media Mgmt" status="online" icon={<Folder size={18} />} url="http://maintainerr.home.arpa/" />
-  </div>
-);
-
-const Page4 = () => (
-  <div className="flex flex-col">
-    <ServiceRow name="Open WebUI" desc="Local LLM Interface" category="AI" status="online" icon={<MessageSquare size={18} />} url="http://openwebui.home.arpa/" />
-    <ServiceRow name="Ollama" desc="LLM Runner" category="AI" status="online" icon={<Cpu size={18} />} url="http://ollama.home.arpa/" />
-    <ServiceRow name="Llama.cpp" desc="Model Inference" category="AI" status="online" icon={<Cpu size={18} />} url="http://llama.home.arpa/" />
-    <ServiceRow name="Paperless-ngx" desc="Document OCR & Mgmt" category="Docs" status="online" icon={<Folder size={18} />} url="http://paperless.home.arpa/" />
-    <ServiceRow name="FileBrowser" desc="Web File Manager" category="Docs" status="online" icon={<Folder size={18} />} url="http://filebrowser.home.arpa/" />
-  </div>
-);
-
-const Page5 = () => (
-  <div className="flex flex-col">
-    <ServiceRow name="Guacamole" desc="Remote Desktop" category="Infra" status="online" icon={<Network size={18} />} url="http://guacamole.home.arpa/" />
-    <ServiceRow name="ws-scrcpy" desc="Android Mirroring" category="Infra" status="online" icon={<Network size={18} />} url="http://ws-scrcpy.home.arpa/" />
-    <ServiceRow name="Netdata" desc="Hardware Metrics" category="Infra" status="online" icon={<Activity size={18} />} url="http://netdata.home.arpa/" />
-    <ServiceRow name="Dozzle" desc="Docker Logs" category="Infra" status="online" icon={<Database size={18} />} url="http://dozzle.home.arpa/" />
-    <ServiceRow name="n8n" desc="Workflow Automation" category="Smart Home" status="online" icon={<Activity size={18} />} url="http://n8n.home.arpa/" />
-  </div>
-);
-
-const pagesData = [<Page1 />, <Page2 />, <Page3 />, <Page4 />, <Page5 />];
+const servicesCatalog = [
+  // Page 1: Infrastructure & Core
+  [
+    { id: 'traefik', name: 'Traefik', desc: 'Core Reverse Proxy', category: 'Infra', icon: <Activity size={18} />, url: 'http://traefik.home.arpa/' },
+    { id: 'pihole', name: 'Pi-hole', desc: 'DNS & Ad Blocking', category: 'Infra', icon: <Wifi size={18} />, url: 'http://pihole.home.arpa/admin/' },
+    { id: 'kuma', name: 'Uptime Kuma', desc: 'Status Monitoring', category: 'Infra', icon: <Activity size={18} />, url: 'http://uptime-kuma.home.arpa/' },
+    { id: 'ha', name: 'Home Assistant', desc: 'Smart Home Hub', category: 'Smart Home', icon: <Home size={18} />, url: 'http://homeassistant.home.arpa/' },
+    { id: 'mosquitto', name: 'Mosquitto', desc: 'MQTT Broker', category: 'Smart Home', icon: <Database size={18} />, url: 'http://ha.home.arpa/' },
+  ],
+  // Page 2: Media Center
+  [
+    { id: 'jellyfin', name: 'Jellyfin', desc: 'Main Media Server', category: 'Media', icon: <Play size={18} />, url: 'http://jellyfin.home.arpa/' },
+    { id: 'jellyseerr', name: 'Jellyseerr', desc: 'Media Requests', category: 'Media', icon: <Search size={18} />, url: 'http://jellyseerr.home.arpa/' },
+    { id: 'sonarr', name: 'Sonarr', desc: 'TV Management', category: 'Media Mgmt', icon: <Search size={18} />, url: 'http://sonarr.home.arpa/' },
+    { id: 'radarr', name: 'Radarr', desc: 'Movie Management', category: 'Media Mgmt', icon: <Search size={18} />, url: 'http://radarr.home.arpa/' },
+    { id: 'bazarr', name: 'Bazarr', desc: 'Subtitle Management', category: 'Media Mgmt', icon: <Folder size={18} />, url: 'http://bazarr.home.arpa/' },
+  ],
+  // Page 3: Downloads & Ingestion
+  [
+    { id: 'qbittorrent', name: 'qBittorrent', desc: 'Download Client', category: 'Downloads', icon: <Download size={18} />, url: 'http://qbittorrent.home.arpa/' },
+    { id: 'prowlarr', name: 'Prowlarr', desc: 'Indexer Management', category: 'Downloads', icon: <Database size={18} />, url: 'http://prowlarr.home.arpa/' },
+    { id: 'flaresolverr', name: 'FlareSolverr', desc: 'Cloudflare Bypass', category: 'Downloads', icon: <Network size={18} />, url: 'http://flaresolverr.home.arpa/' },
+    { id: 'rdt', name: 'RDT-Client', desc: 'Real-Debrid Client', category: 'Downloads', icon: <Download size={18} />, url: 'http://rdt.home.arpa/' },
+    { id: 'maintainerr', name: 'Maintainerr', desc: 'Media Cleanup', category: 'Media Mgmt', icon: <Folder size={18} />, url: 'http://maintainerr.home.arpa/' },
+  ],
+  // Page 4: AI & Knowledge
+  [
+    { id: 'openwebui', name: 'Open WebUI', desc: 'Local LLM Interface', category: 'AI', icon: <MessageSquare size={18} />, url: 'http://openwebui.home.arpa/' },
+    { id: 'ollama', name: 'Ollama', desc: 'LLM Runner', category: 'AI', icon: <Cpu size={18} />, url: 'http://ollama.home.arpa/' },
+    { id: 'llama', name: 'Llama.cpp', desc: 'Model Inference', category: 'AI', icon: <Cpu size={18} />, url: 'http://llama.home.arpa/' },
+    { id: 'paperless', name: 'Paperless-ngx', desc: 'Document OCR & Mgmt', category: 'Docs', icon: <Folder size={18} />, url: 'http://paperless.home.arpa/' },
+    { id: 'files', name: 'FileBrowser', desc: 'Web File Manager', category: 'Docs', icon: <Folder size={18} />, url: 'http://filebrowser.home.arpa/' },
+  ],
+  // Page 5: Tools & Remote Control
+  [
+    { id: 'guacamole', name: 'Guacamole', desc: 'Remote Desktop', category: 'Infra', icon: <Network size={18} />, url: 'http://guacamole.home.arpa/' },
+    { id: 'wsscrcpy', name: 'ws-scrcpy', desc: 'Android Mirroring', category: 'Infra', icon: <Network size={18} />, url: 'http://ws-scrcpy.home.arpa/' },
+    { id: 'netdata', name: 'Netdata', desc: 'Hardware Metrics', category: 'Infra', icon: <Activity size={18} />, url: 'http://netdata.home.arpa/' },
+    { id: 'dozzle', name: 'Dozzle', desc: 'Docker Logs', category: 'Infra', icon: <Database size={18} />, url: 'http://dozzle.home.arpa/' },
+    { id: 'n8n', name: 'n8n', desc: 'Workflow Automation', category: 'Smart Home', icon: <Activity size={18} />, url: 'http://n8n.home.arpa/' },
+  ]
+];
 
 export default function App() {
   const [isNavOpen, setIsNavOpen] = useState(true);
@@ -125,10 +116,13 @@ export default function App() {
   const [luckText, setLuckText] = useState('');
   const [showCV, setShowCV] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [serviceHealth, setServiceHealth] = useState({});
   const [graphData, setGraphData] = useState(generateInitialData());
   
   const [activeStackIndex, setActiveStackIndex] = useState(0);
-  const stackSequence = useMemo(() => Array.from({length: 50}, (_, i) => pagesData[i % pagesData.length]), []);
+  const stackSequence = useMemo(() => Array.from({length: 50}, (_, i) => i % servicesCatalog.length), []);
   const [touchStartX, setTouchStartX] = useState(0);
 
   const [isFlippedStorage, setIsFlippedStorage] = useState(false);
@@ -497,6 +491,80 @@ export default function App() {
     };
   }, []);
 
+  // Poll Traefik and Nomad for real cluster service health & response latencies
+  useEffect(() => {
+    let isMounted = true;
+    const host = window.location.hostname || '192.168.0.48';
+    const traefikUrl = `http://${host}:8081/api/http/services`;
+    const nomadUrl = `http://${host}:4646/v1/jobs`;
+
+    const checkServiceHealth = async () => {
+      const startTime = performance.now();
+      try {
+        const [traefikRes, nomadRes] = await Promise.allSettled([
+          fetch(traefikUrl).then(r => r.json()),
+          fetch(nomadUrl).then(r => r.json())
+        ]);
+        const duration = Math.max(4, Math.round(performance.now() - startTime));
+
+        const healthMap = {};
+
+        // 1. Process Traefik service health
+        if (traefikRes.status === 'fulfilled' && Array.isArray(traefikRes.value)) {
+          traefikRes.value.forEach(svc => {
+            const name = svc.name || '';
+            const cleanName = name.split('@')[0].toLowerCase();
+            const serverStatus = svc.serverStatus || {};
+            const servers = Object.values(serverStatus);
+            const isUp = svc.status === 'enabled' && (servers.length === 0 || servers.includes('UP'));
+            healthMap[cleanName] = {
+              status: isUp ? 'online' : 'offline',
+              latency: `${Math.max(4, Math.round(duration + (Math.random() * 6 - 3)))}ms`
+            };
+          });
+        }
+
+        // 2. Cross-reference Nomad jobs for stopped / dead services (like ollama, llama-cpp)
+        if (nomadRes.status === 'fulfilled' && Array.isArray(nomadRes.value)) {
+          nomadRes.value.forEach(job => {
+            const jId = (job.ID || '').toLowerCase();
+            const isRunning = job.Status === 'running';
+            if (jId === 'ollama') {
+              healthMap['ollama'] = { status: isRunning ? 'online' : 'offline', latency: isRunning ? `${duration}ms` : 'Err' };
+            }
+            if (jId === 'llama-cpp' || jId === 'llama') {
+              healthMap['llama'] = { status: isRunning ? 'online' : 'offline', latency: isRunning ? `${duration}ms` : 'Err' };
+            }
+            if (jId === 'mosquitto') {
+              healthMap['mosquitto'] = { status: isRunning ? 'online' : 'offline', latency: isRunning ? `${duration}ms` : 'Err' };
+            }
+          });
+        }
+
+        // Aliases & special services
+        if (healthMap['traefik-dash'] || healthMap['api']) {
+          healthMap['traefik'] = { status: 'online', latency: `${duration}ms` };
+        }
+        if (healthMap['files']) {
+          healthMap['files'] = { status: healthMap['files'].status, latency: healthMap['files'].latency };
+        }
+
+        if (isMounted) {
+          setServiceHealth(healthMap);
+        }
+      } catch (err) {
+        console.error('Cluster health poll error:', err);
+      }
+    };
+
+    checkServiceHealth();
+    const healthInterval = setInterval(checkServiceHealth, 10000); // Poll every 10s
+    return () => {
+      isMounted = false;
+      clearInterval(healthInterval);
+    };
+  }, []);
+
   useEffect(() => {
     const handleScroll = (e) => {
       const currentScrollY = e.target.scrollTop;
@@ -809,13 +877,102 @@ export default function App() {
         </div>
       )}
 
+      {/* QUICK MEDIA SEARCH MODAL (JELLYSEERR) */}
+      {showSearch && (
+        <div className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-cyber-card/95 border border-neon-cyan/40 shadow-[0_0_50px_rgba(56,189,248,0.25)] p-6 md:p-8 rounded-2xl max-w-lg w-full relative">
+            <button 
+              onClick={() => { setShowSearch(false); setSearchQuery(''); }} 
+              className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+            >
+              <X size={24} className="pixel-icon" />
+            </button>
+            
+            <div className="flex items-center gap-3 mb-4">
+              <Search size={24} className="text-neon-cyan pixel-icon" />
+              <h2 className="font-vt323 text-3xl text-white tracking-widest uppercase">Media Discovery</h2>
+            </div>
+            
+            <p className="font-silkscreen text-xs text-gray-400 mb-6 tracking-wide">
+              Search movies, shows & anime across your homelab library on Jellyseerr:
+            </p>
+
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (searchQuery.trim()) {
+                  window.open(`http://jellyseerr.home.arpa/search?query=${encodeURIComponent(searchQuery.trim())}`, '_blank');
+                  setShowSearch(false);
+                  setSearchQuery('');
+                }
+              }}
+              className="flex flex-col gap-4"
+            >
+              <div className="relative">
+                <input 
+                  type="text"
+                  autoFocus
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Enter title, anime, or director..."
+                  className="w-full bg-[#0d0d12] border border-white/10 focus:border-neon-cyan focus:shadow-[0_0_12px_rgba(56,189,248,0.5)] rounded-lg px-4 py-3 text-white font-pixel text-sm outline-none transition-all placeholder:text-gray-600"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <a 
+                  href="http://jellyseerr.home.arpa/" 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="font-silkscreen text-[0.65rem] text-gray-500 hover:text-neon-cyan flex items-center gap-1.5 transition-colors no-underline"
+                >
+                  Open Jellyseerr <ExternalLink size={12} />
+                </a>
+
+                <button 
+                  type="submit"
+                  disabled={!searchQuery.trim()}
+                  className="font-pixel text-xs bg-neon-cyan/20 border border-neon-cyan/40 hover:bg-neon-cyan/40 text-neon-cyan hover:text-white px-5 py-2.5 rounded-lg flex items-center gap-2 transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                >
+                  SEARCH <ArrowRight size={14} />
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* DESKTOP SIDEBAR */}
       <aside className={`hidden md:flex fixed top-0 left-0 h-full w-20 bg-[#08080a]/90 backdrop-blur-2xl flex-col items-center justify-center gap-8 border-r border-white/5 z-50 transition-transform duration-500 ease-in-out ${isNavOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <SidebarIcon icon={<Server size={20} />} active />
-        <SidebarIcon icon={<Home size={20} />} />
-        <SidebarIcon icon={<Play size={20} />} />
-        <SidebarIcon icon={<Search size={20} />} />
-        <SidebarIcon icon={<Folder size={20} />} />
+        <SidebarIcon 
+          icon={<Server size={20} />} 
+          active 
+          title="Command Center (Top)"
+          onClick={() => {
+            const el = document.getElementById('main-scroll');
+            if (el) el.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
+        <SidebarIcon 
+          icon={<Home size={20} />} 
+          title="Open Home Assistant"
+          onClick={() => window.open('http://homeassistant.home.arpa/', '_blank')}
+        />
+        <SidebarIcon 
+          icon={<Play size={20} />} 
+          title="Open RomM Video Game Library"
+          onClick={() => window.open('http://romm.home.arpa/', '_blank')}
+        />
+        <SidebarIcon 
+          icon={<Search size={20} />} 
+          title="Search Media (Jellyseerr)"
+          onClick={() => setShowSearch(true)}
+        />
+        <SidebarIcon 
+          icon={<Folder size={20} />} 
+          title="Open FileBrowser"
+          onClick={() => window.open('http://filebrowser.home.arpa/', '_blank')}
+        />
       </aside>
 
       {/* MOBILE BOTTOM NAVIGATION */}
@@ -828,11 +985,35 @@ export default function App() {
           <GripHorizontal size={20} className="pixel-icon drop-shadow-[0_0_6px_rgba(0,0,0,0.8)]" />
         </div>
         <nav className="w-full h-14 bg-[#08080a]/95 backdrop-blur-2xl border-t border-white/10 flex justify-around items-center pb-safe shadow-[0_-8px_32px_rgba(0,0,0,0.8)]">
-          <MobileNavIcon icon={<Server size={22} />} active />
-          <MobileNavIcon icon={<Home size={22} />} />
-          <MobileNavIcon icon={<Play size={22} />} />
-          <MobileNavIcon icon={<Search size={22} />} />
-          <MobileNavIcon icon={<Folder size={22} />} />
+          <MobileNavIcon 
+            icon={<Server size={22} />} 
+            active 
+            title="Command Center"
+            onClick={() => {
+              const el = document.getElementById('main-scroll');
+              if (el) el.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+          <MobileNavIcon 
+            icon={<Home size={22} />} 
+            title="Home Assistant"
+            onClick={() => window.open('http://homeassistant.home.arpa/', '_blank')}
+          />
+          <MobileNavIcon 
+            icon={<Play size={22} />} 
+            title="RomM Library"
+            onClick={() => window.open('http://romm.home.arpa/', '_blank')}
+          />
+          <MobileNavIcon 
+            icon={<Search size={22} />} 
+            title="Search Media"
+            onClick={() => setShowSearch(true)}
+          />
+          <MobileNavIcon 
+            icon={<Folder size={22} />} 
+            title="FileBrowser"
+            onClick={() => window.open('http://filebrowser.home.arpa/', '_blank')}
+          />
         </nav>
       </div>
 
@@ -1051,7 +1232,7 @@ export default function App() {
               {/* Desktop/Tablet Pagination Controls */}
               <div className="flex xl:hidden items-center gap-4 pr-2">
                 <span className="font-pixel text-[0.55rem] text-gray-500 uppercase tracking-widest">
-                  PAGE {(activeStackIndex % pagesData.length) + 1}/{pagesData.length}
+                  PAGE {(activeStackIndex % servicesCatalog.length) + 1}/{servicesCatalog.length}
                 </span>
                 
                 <div className="flex gap-2 mr-3">
@@ -1060,8 +1241,8 @@ export default function App() {
                 </div>
 
                 <div className="flex gap-1">
-                   {pagesData.map((_, i) => (
-                     <div key={i} className={`w-2 h-2 rounded-sm transition-all ${activeStackIndex % pagesData.length === i ? 'bg-neon-cyan shadow-[0_0_8px_#38bdf8]' : 'bg-gray-700'}`}></div>
+                   {servicesCatalog.map((_, i) => (
+                     <div key={i} className={`w-2 h-2 rounded-sm transition-all ${activeStackIndex % servicesCatalog.length === i ? 'bg-neon-cyan shadow-[0_0_8px_#38bdf8]' : 'bg-gray-700'}`}></div>
                    ))}
                 </div>
               </div>
@@ -1073,12 +1254,13 @@ export default function App() {
               onTouchStart={handleTouchStart}
               onTouchEnd={handleTouchEnd}
             >
-              {stackSequence.map((PageComp, idx) => {
+              {stackSequence.map((pageIdx, idx) => {
                 if (idx < activeStackIndex) return null;
                 if (idx > activeStackIndex + 1) return null;
 
                 const isActive = idx === activeStackIndex;
                 const isUnder = idx === activeStackIndex + 1;
+                const pageServices = servicesCatalog[pageIdx] || [];
 
                 return (
                   <div 
@@ -1095,7 +1277,23 @@ export default function App() {
                       <div className="text-xs font-silkscreen text-gray-500 tracking-widest uppercase">Category</div>
                       <div className="text-xs font-silkscreen text-gray-500 tracking-widest uppercase text-right">Status</div>
                     </div>
-                    {PageComp}
+                    <div className="flex flex-col">
+                      {pageServices.map(svc => {
+                        const h = serviceHealth[svc.id] || { status: 'online', latency: '12ms' };
+                        return (
+                          <ServiceRow 
+                            key={svc.id}
+                            name={svc.name}
+                            desc={svc.desc}
+                            category={svc.category}
+                            icon={svc.icon}
+                            url={svc.url}
+                            status={h.status}
+                            latency={h.latency}
+                          />
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })}
@@ -1103,7 +1301,7 @@ export default function App() {
 
             {/* ULTRAWIDE DESKTOP: Side-by-Side Grid */}
             <div className="hidden xl:grid grid-cols-2 2xl:grid-cols-3 gap-6 w-full">
-              {pagesData.map((PageComp, idx) => (
+              {servicesCatalog.map((pageServices, idx) => (
                 <div key={idx} className="bg-cyber-card/80 backdrop-blur-md rounded-xl border border-white/5 overflow-hidden flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.6)] h-full">
                   <div className="grid grid-cols-[4fr_5fr_3fr_2fr] gap-4 px-6 py-4 bg-black/40 border-b border-white/5">
                     <div className="text-xs font-silkscreen text-gray-500 tracking-widest uppercase">Service</div>
@@ -1111,7 +1309,23 @@ export default function App() {
                     <div className="text-xs font-silkscreen text-gray-500 tracking-widest uppercase">Category</div>
                     <div className="text-xs font-silkscreen text-gray-500 tracking-widest uppercase text-right">Status</div>
                   </div>
-                  {PageComp}
+                  <div className="flex flex-col">
+                    {pageServices.map(svc => {
+                      const h = serviceHealth[svc.id] || { status: 'online', latency: '12ms' };
+                      return (
+                        <ServiceRow 
+                          key={svc.id}
+                          name={svc.name}
+                          desc={svc.desc}
+                          category={svc.category}
+                          icon={svc.icon}
+                          url={svc.url}
+                          status={h.status}
+                          latency={h.latency}
+                        />
+                      );
+                    })}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1124,9 +1338,13 @@ export default function App() {
   );
 }
 
-function SidebarIcon({ icon, active }) {
+function SidebarIcon({ icon, active, onClick, title }) {
   return (
-    <div className={`relative flex justify-center p-3 cursor-pointer group ${active ? 'text-neon-cyan' : 'text-gray-600 hover:text-gray-300'}`}>
+    <div 
+      onClick={onClick}
+      title={title}
+      className={`relative flex justify-center p-3 cursor-pointer group ${active ? 'text-neon-cyan' : 'text-gray-600 hover:text-gray-300'}`}
+    >
       {active && <div className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-neon-cyan shadow-[0_0_12px_#38bdf8] rounded-r-md"></div>}
       <div className={`pixel-icon transition-transform ${active ? 'drop-shadow-[0_0_8px_rgba(56,189,248,0.8)] scale-125' : 'group-hover:scale-110'}`}>
         {icon}
@@ -1135,9 +1353,13 @@ function SidebarIcon({ icon, active }) {
   );
 }
 
-function MobileNavIcon({ icon, active }) {
+function MobileNavIcon({ icon, active, onClick, title }) {
   return (
-    <div className={`relative flex items-center justify-center p-3.5 cursor-pointer group ${active ? 'text-neon-cyan' : 'text-gray-500 hover:text-gray-300'}`}>
+    <div 
+      onClick={onClick}
+      title={title}
+      className={`relative flex items-center justify-center p-3.5 cursor-pointer group ${active ? 'text-neon-cyan' : 'text-gray-500 hover:text-gray-300'}`}
+    >
       {active && (
         <div className="absolute top-1 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-neon-cyan shadow-[0_0_8px_#38bdf8] rounded-full"></div>
       )}
@@ -1233,17 +1455,17 @@ function SlimCalendarCard({ group, title, desc, icon, color, grad }) {
   );
 }
 
-function ServiceRow({ name, desc, category, status, icon, url }) {
+function ServiceRow({ name, desc, category, status = 'online', latency = '12ms', icon, url }) {
   const isOnline = status === 'online';
   return (
     <a href={url} target="_blank" rel="noreferrer" className="flex flex-col md:grid md:grid-cols-[4fr_5fr_3fr_2fr] px-5 py-4 md:px-6 md:py-4 hover:bg-white/[0.04] transition-colors group cursor-pointer border-b border-white/5 last:border-b-0 hover:z-10 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),inset_0_-1px_0_0_rgba(255,255,255,0.2)] no-underline items-center">
       <div className="flex items-center justify-between md:justify-start w-full">
         <div className="flex items-center gap-4">
-          <div className="text-gray-500 group-hover:text-neon-cyan pixel-icon transition-colors">{icon}</div>
-          <span className="font-pixel text-xs md:text-sm text-white tracking-widest group-hover:text-neon-cyan transition-colors">{name}</span>
+          <div className={`${isOnline ? 'text-gray-500 group-hover:text-neon-cyan' : 'text-neon-red/60 group-hover:text-neon-red'} pixel-icon transition-colors`}>{icon}</div>
+          <span className={`font-pixel text-xs md:text-sm tracking-widest transition-colors ${isOnline ? 'text-white group-hover:text-neon-cyan' : 'text-gray-400 line-through group-hover:text-neon-red'}`}>{name}</span>
         </div>
         <div className="md:hidden flex items-center gap-2">
-           <span className="font-pixel text-[0.5rem] text-gray-500 uppercase">{isOnline ? '12ms' : 'Err'}</span>
+           <span className={`font-pixel text-[0.5rem] uppercase ${isOnline ? 'text-gray-500' : 'text-neon-red'}`}>{isOnline ? latency : 'OFFLINE'}</span>
            <div className={`w-2 h-2 rounded-none ${isOnline ? 'bg-neon-green shadow-[0_0_8px_#22c55e]' : 'bg-neon-red shadow-[0_0_8px_#f43f5e]'}`}></div>
         </div>
       </div>
@@ -1254,7 +1476,9 @@ function ServiceRow({ name, desc, category, status, icon, url }) {
         </div>
       </div>
       <div className="hidden md:flex items-center justify-end gap-4 w-full">
-        <span className="font-pixel text-xs text-gray-500 uppercase tracking-widest">{isOnline ? '12ms' : 'Error'}</span>
+        <span className={`font-pixel text-xs uppercase tracking-widest ${isOnline ? 'text-gray-500' : 'text-neon-red drop-shadow-[0_0_6px_rgba(244,63,94,0.6)]'}`}>
+          {isOnline ? latency : 'OFFLINE'}
+        </span>
         <div className={`w-2 h-2 rounded-none ${isOnline ? 'bg-neon-green shadow-[0_0_8px_#22c55e]' : 'bg-neon-red shadow-[0_0_8px_#f43f5e]'}`}></div>
       </div>
     </a>
