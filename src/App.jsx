@@ -596,7 +596,7 @@ export default function App() {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 2000);
           try {
-            await fetch(svc.url, { mode: 'no-cors', cache: 'no-store', signal: controller.signal });
+            await fetch(svc.url, { method: 'HEAD', mode: 'no-cors', cache: 'no-store', signal: controller.signal });
             clearTimeout(timeoutId);
             const duration = Math.max(1, Math.round(performance.now() - start));
             if (!healthMap[svc.id]) healthMap[svc.id] = { status: 'online' };
