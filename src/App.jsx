@@ -18,11 +18,11 @@ const generateInitialData = () => {
   }));
 };
 
-const releaseData = [
-  { group: "TODAY", title: "The Grand Tour", desc: "S06E01 - 1080p", icon: <Play size={20}/>, color: "neon-cyan", grad: "from-[#38bdf8] to-[#818cf8]" },
-  { group: "TOMORROW", title: "Severance", desc: "S02E01 - 4K", icon: <Eye size={20}/>, color: "neon-purple", grad: "from-[#a78bfa] to-[#f472b6]" },
-  { group: "THIS WEEK", title: "Deadpool & W.", desc: "Web-DL", icon: <Download size={20}/>, color: "neon-green", grad: "from-[#22c55e] to-[#10b981]" },
-  { group: "SOON", title: "Dune: Part Two", desc: "4K REMUX", icon: <HardDrive size={20}/>, color: "neon-cyan", grad: "from-[#38bdf8] to-[#a78bfa]" },
+const defaultReleaseData = [
+  { group: "TODAY", title: "Clevatess", desc: "S02E09 - 1080p", icon: <Play size={20}/>, color: "neon-cyan", grad: "from-[#38bdf8] to-[#818cf8]" },
+  { group: "TODAY", title: "Re: ZERO", desc: "S04E15 - 1080p", icon: <Play size={20}/>, color: "neon-purple", grad: "from-[#a78bfa] to-[#f472b6]" },
+  { group: "TOMORROW", title: "Link Click", desc: "S04E05 - 1080p", icon: <Eye size={20}/>, color: "neon-green", grad: "from-[#22c55e] to-[#10b981]" },
+  { group: "THIS MONTH", title: "Forgotten Island", desc: "Cinema Release", icon: <HardDrive size={20}/>, color: "neon-cyan", grad: "from-[#38bdf8] to-[#a78bfa]" },
 ];
 
 const getWeatherIcon = (wmoCode, size = 16) => {
@@ -144,6 +144,8 @@ export default function App() {
   const [nvmeActive, setNvmeActive] = useState(false);
   const [gdriveActive, setGdriveActive] = useState(false);
   const [weatherData, setWeatherData] = useState(defaultWeatherData);
+  const [releaseData, setReleaseData] = useState(defaultReleaseData);
+  const [calendarReleases, setCalendarReleases] = useState({});
 
   // Netdata real-time streaming for charts (CPU, RAM, Network I/O, Temp, Disk I/O)
   useEffect(() => {
@@ -347,6 +349,145 @@ export default function App() {
     };
   }, []);
 
+  // Fetch upcoming releases from Sonarr and Radarr
+  useEffect(() => {
+    let isMounted = true;
+    const host = window.location.hostname || '192.168.0.48';
+    const sonarrKey = '8d39d99bab98425c8f22e809a405ddbc';
+    const radarrKey = 'c47ae26b45084cbb8c31d60d32487cb7';
+
+    const fetchReleases = async () => {
+      try {
+        const now = new Date();
+        const startStr = now.toISOString().split('T')[0];
+        const nextMonth = new Date(now.getTime() + 35 * 24 * 60 * 60 * 1000);
+        const endStr = nextMonth.toISOString().split('T')[0];
+
+        const [sonarrRes, radarrRes] = await Promise.allSettled([
+          fetch(`http://${host}:8989/api/v3/calendar?apiKey=${sonarrKey}&includeSeries=true&start=${startStr}&end=${endStr}`).then(r => r.json()),
+          fetch(`http://${host}:7878/api/v3/calendar?apiKey=${radarrKey}&start=${startStr}&end=${endStr}`).then(r => r.json())
+        ]);
+
+        if (!isMounted) return;
+
+        const allReleases = [];
+        const monthMap = {};
+
+        if (sonarrRes.status === 'fulfilled' && Array.isArray(sonarrRes.value)) {
+          sonarrRes.value.forEach(item => {
+            const date = new Date(item.airDateUtc || item.airDate);
+            const seriesName = item.series?.title || item.title || 'TV Episode';
+            const seasonEp = `S${String(item.seasonNumber).padStart(2, '0')}E${String(item.episodeNumber).padStart(2, '0')}`;
+            const quality = item.hasFile ? 'Downloaded' : 'Scheduled';
+            const title = seriesName;
+            const desc = `${seasonEp} - ${quality}`;
+
+            allReleases.push({
+              date,
+              title,
+              desc,
+              type: 'tv'
+            });
+
+            // Map day of month for current month
+            if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) {
+              const day = date.getDate();
+              if (!monthMap[day]) monthMap[day] = [];
+              monthMap[day].push({ title, type: 'tv' });
+            }
+          });
+        }
+
+        if (radarrRes.status === 'fulfilled' && Array.isArray(radarrRes.value)) {
+          radarrRes.value.forEach(item => {
+            const dateStr = item.inCinemas || item.digitalRelease || item.physicalRelease;
+            if (!dateStr) return;
+            const date = new Date(dateStr);
+            const title = item.title || 'Movie';
+            const desc = item.hasFile ? 'Downloaded' : 'Cinema/Digital';
+
+            allReleases.push({
+              date,
+              title,
+              desc,
+              type: 'movie'
+            });
+
+            if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) {
+              const day = date.getDate();
+              if (!monthMap[day]) monthMap[day] = [];
+              monthMap[day].push({ title, type: 'movie' });
+            }
+          });
+        }
+
+        if (allReleases.length > 0) {
+          // Sort by date ascending
+          allReleases.sort((a, b) => a.date - b.date);
+
+          // Group into TODAY, TOMORROW, THIS WEEK, THIS MONTH
+          const cards = [];
+          const todayDate = now.getDate();
+          const tomorrowDate = new Date(now.getTime() + 24 * 60 * 60 * 1000).getDate();
+          const oneWeek = now.getTime() + 7 * 24 * 60 * 60 * 1000;
+
+          allReleases.slice(0, 8).forEach(rel => {
+            const relTime = rel.date.getTime();
+            let group = 'SOON';
+            let color = 'neon-cyan';
+            let grad = 'from-[#38bdf8] to-[#a78bfa]';
+            let icon = <Play size={20} />;
+
+            if (rel.date.getDate() === todayDate && rel.date.getMonth() === now.getMonth()) {
+              group = 'TODAY';
+              color = 'neon-cyan';
+              grad = 'from-[#38bdf8] to-[#818cf8]';
+              icon = <Play size={20} />;
+            } else if (rel.date.getDate() === tomorrowDate && rel.date.getMonth() === now.getMonth()) {
+              group = 'TOMORROW';
+              color = 'neon-purple';
+              grad = 'from-[#a78bfa] to-[#f472b6]';
+              icon = <Eye size={20} />;
+            } else if (relTime <= oneWeek) {
+              group = 'THIS WEEK';
+              color = 'neon-green';
+              grad = 'from-[#22c55e] to-[#10b981]';
+              icon = <Download size={20} />;
+            } else {
+              group = 'THIS MONTH';
+              color = 'neon-cyan';
+              grad = 'from-[#38bdf8] to-[#a78bfa]';
+              icon = <HardDrive size={20} />;
+            }
+
+            cards.push({
+              group,
+              title: rel.title,
+              desc: rel.desc,
+              icon,
+              color,
+              grad
+            });
+          });
+
+          if (cards.length > 0) {
+            setReleaseData(cards);
+          }
+          setCalendarReleases(monthMap);
+        }
+      } catch (err) {
+        console.error('Calendar release fetch error:', err);
+      }
+    };
+
+    fetchReleases();
+    const rInterval = setInterval(fetchReleases, 10 * 60 * 1000); // 10 min refresh
+    return () => {
+      isMounted = false;
+      clearInterval(rInterval);
+    };
+  }, []);
+
   useEffect(() => {
     const handleScroll = (e) => {
       const currentScrollY = e.target.scrollTop;
@@ -436,7 +577,7 @@ export default function App() {
             <button onClick={() => setShowCalendar(false)} className="absolute top-6 right-6 text-gray-500 hover:text-neon-purple transition-colors"><X size={28} className="pixel-icon" /></button>
             
             <div className="font-vt323 text-3xl md:text-5xl text-white tracking-widest mb-2 flex items-center gap-4">
-              <CalendarIcon size={32} className="text-neon-purple pixel-icon" /> AUGUST 2026
+              <CalendarIcon size={32} className="text-neon-purple pixel-icon" /> {new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }).toUpperCase()}
             </div>
             <div className="font-silkscreen text-xs md:text-sm text-neon-purple/80 uppercase tracking-widest mb-8">// Scheduled Releases</div>
             
@@ -446,21 +587,33 @@ export default function App() {
                   {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
                     <div key={day} className="font-pixel text-[0.55rem] md:text-xs text-gray-500 text-center mb-2">{day}</div>
                   ))}
-                  {Array.from({length: 31}).map((_, i) => (
-                    <div key={i} className={`border ${i === 14 ? 'border-neon-green/30 bg-neon-green/5' : i === 28 ? 'border-neon-cyan/30 bg-neon-cyan/5' : 'border-white/5 bg-black/20'} rounded-lg p-1.5 md:p-2 flex flex-col relative group hover:border-white/30 transition-colors md:aspect-square min-h-[80px]`}>
-                      <span className="font-pixel text-[0.6rem] md:text-sm text-gray-400">{i + 1}</span>
-                      {i === 14 && (
-                        <div className="mt-1 md:mt-2 w-full bg-neon-green/10 border-l-[2px] md:border-l-[3px] border-neon-green p-1 rounded-sm shadow-[0_0_8px_rgba(34,197,94,0.1)]">
-                          <div className="font-pixel text-[0.4rem] md:text-[0.55rem] text-neon-green whitespace-normal leading-tight">Deadpool & W.</div>
-                        </div>
-                      )}
-                      {i === 28 && (
-                        <div className="mt-1 md:mt-2 w-full bg-neon-cyan/10 border-l-[2px] md:border-l-[3px] border-neon-cyan p-1 rounded-sm shadow-[0_0_8px_rgba(56,189,248,0.1)]">
-                          <div className="font-pixel text-[0.4rem] md:text-[0.55rem] text-neon-cyan whitespace-normal leading-tight">Dune: Part Two</div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                  {Array.from({length: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()}).map((_, i) => {
+                    const dayNum = i + 1;
+                    const dayItems = calendarReleases[dayNum] || [];
+                    const hasItems = dayItems.length > 0;
+                    const isToday = dayNum === new Date().getDate();
+
+                    return (
+                      <div 
+                        key={i} 
+                        className={`border ${isToday ? 'border-neon-cyan/50 bg-neon-cyan/10 ring-1 ring-neon-cyan/30' : hasItems ? 'border-neon-purple/30 bg-neon-purple/5' : 'border-white/5 bg-black/20'} rounded-lg p-1.5 md:p-2 flex flex-col relative group hover:border-white/30 transition-colors md:aspect-square min-h-[80px]`}
+                      >
+                        <span className={`font-pixel text-[0.6rem] md:text-sm ${isToday ? 'text-neon-cyan font-bold' : 'text-gray-400'}`}>
+                          {dayNum}
+                        </span>
+                        {dayItems.slice(0, 2).map((item, itemIdx) => (
+                          <div 
+                            key={itemIdx} 
+                            className={`mt-1 md:mt-2 w-full ${item.type === 'movie' ? 'bg-neon-cyan/10 border-l-[2px] md:border-l-[3px] border-neon-cyan text-neon-cyan' : 'bg-neon-green/10 border-l-[2px] md:border-l-[3px] border-neon-green text-neon-green'} p-1 rounded-sm shadow-[0_0_8px_rgba(34,197,94,0.1)]`}
+                          >
+                            <div className="font-pixel text-[0.4rem] md:text-[0.55rem] truncate leading-tight">
+                              {item.title}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
