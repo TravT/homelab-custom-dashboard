@@ -12,6 +12,10 @@ import { CVModal } from './components/modals/CVModal.jsx';
 import { CalendarModal } from './components/modals/CalendarModal.jsx';
 import { SearchModal } from './components/modals/SearchModal.jsx';
 
+import { useDropzone } from './hooks/useDropzone.js';
+import { DropzoneModal } from './components/dropzone/DropzoneModal.jsx';
+import { GlobalDropOverlay } from './components/dropzone/GlobalDropOverlay.jsx';
+
 /**
  * Homelab Custom Dashboard - Modular Command Center
  * Phase 0 Capstone: Fastify BFF + Modular React Architecture
@@ -22,6 +26,9 @@ export default function App() {
   const [showSearch, setShowSearch] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+
+  // 0. Dropzone (AirDrop / Ephemeral File Transfer)
+  const dropzone = useDropzone();
 
   // 1. BFF Telemetry & State Stream
   const {
@@ -112,12 +119,31 @@ export default function App() {
       <CVModal isOpen={showCV} onClose={() => setShowCV(false)} />
       <CalendarModal isOpen={showCalendar} onClose={() => setShowCalendar(false)} rawReleases={rawReleases} />
       <SearchModal isOpen={showSearch} onClose={() => setShowSearch(false)} />
+      
+      {/* DROPZONE MODAL & RADAR OVERLAY */}
+      <DropzoneModal 
+        isOpen={dropzone.isOpen}
+        onClose={dropzone.closeDropzone}
+        activeTab={dropzone.activeTab}
+        onTabChange={dropzone.setActiveTab}
+        activeDrops={dropzone.activeDrops}
+        uploadProgress={dropzone.uploadProgress}
+        isUploading={dropzone.isUploading}
+        latestDrop={dropzone.latestDrop}
+        uploadError={dropzone.uploadError}
+        stagedFile={dropzone.stagedFile}
+        onUpload={dropzone.uploadFile}
+        onDeleteDrop={dropzone.deleteDrop}
+        onResetUpload={dropzone.resetUpload}
+      />
+      <GlobalDropOverlay isDragging={dropzone.isDraggingGlobal} />
 
       {/* DESKTOP SIDEBAR & MOBILE NAVIGATION */}
       <Sidebar 
         isNavOpen={isNavOpen} 
         onToggleNav={() => setIsNavOpen(!isNavOpen)} 
         onOpenSearch={() => setShowSearch(true)} 
+        onOpenDropzone={() => dropzone.openDropzone('upload')}
       />
 
       {/* MAIN CONTENT AREA */}

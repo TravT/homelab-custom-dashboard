@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Command Center — Dropzone Feature Mock & Interactive Prototype</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Press+Start+2P&family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --neon-cyan: #38bdf8;
+      --neon-purple: #a78bfa;
+      --neon-green: #22c55e;
+      --neon-red: #f43f5e;
+      --cyber-card: #0d0d12;
+      --cyber-border: rgba(255, 255, 255, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: #0a0a0c;
+      background-image: radial-gradient(circle at center, rgba(255,255,255,0.05) 1px, transparent 1px);
+      background-size: 24px 24px;
+      color: #e2e8f0;
+      font-family: 'Pixelify Sans', system-ui, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* TYPOGRAPHY */
+    .font-vt323 { font-family: 'VT323', monospace; }
+    .font-silkscreen { font-family: 'Silkscreen', cursive; }
+    .font-press-start { font-family: 'Press Start 2P', monospace; }
+    .font-pixel { font-family: 'Pixelify Sans', sans-serif; }
+
+    /* SCANLINE EFFECT */
+    .scanlines {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+      background-size: 100% 3px, 3px 100%;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.6;
+    }
+
+    /* KEYFRAME ANIMATIONS */
+    @keyframes radarSweep {
+      0% { transform: translateY(-100%); }
+      100% { transform: translateY(100%); }
+    }
+    @keyframes pulseCyan {
+      0%, 100% { box-shadow: 0 0 15px rgba(56, 189, 248, 0.3), inset 0 0 15px rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.6); }
+      50% { box-shadow: 0 0 35px rgba(56, 189, 248, 0.8), inset 0 0 25px rgba(56, 189, 248, 0.3); border-color: #38bdf8; }
+    }
+    @keyframes borderDance {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes hddBlink {
+      0%, 100% { opacity: 0.2; }
+      20%, 40% { opacity: 1; filter: drop-shadow(0 0 6px currentColor); }
+      50%, 90% { opacity: 0.2; }
+    }
+
+    /* LAYOUT CONTAINERS */
+    .dashboard-layout {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: 80px;
+      background: rgba(8, 8, 10, 0.95);
+      border-right: 1px solid var(--cyber-border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 0;
+      gap: 28px;
+      z-index: 50;
+      position: fixed;
+      top: 0; bottom: 0; left: 0;
+    }
+
+    .sidebar-icon {
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #64748b;
+      cursor: pointer;
+      border-radius: 12px;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .sidebar-icon:hover {
+      color: #e2e8f0;
+      transform: scale(1.1);
+    }
+
+    .sidebar-icon.active {
+      color: var(--neon-cyan);
+      text-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+    }
+
+    .sidebar-icon.active::before {
+      content: '';
+      position: absolute;
+      left: -16px;
+      top: 12px;
+      bottom: 12px;
+      width: 4px;
+      background: var(--neon-cyan);
+      border-radius: 0 4px 4px 0;
+      box-shadow: 0 0 12px var(--neon-cyan);
+    }
+
+    /* SPOTLIGHT BADGE FOR THE NEW DROPZONE FEATURE */
+    .feature-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: var(--neon-cyan);
+      color: #000;
+      font-size: 8px;
+      font-weight: bold;
+      padding: 1px 4px;
+      border-radius: 4px;
+      box-shadow: 0 0 8px var(--neon-cyan);
+      animation: pulseCyan 2s infinite;
+    }
+
+    /* MAIN CONTENT MOCK */
+    .main-content {
+      margin-left: 80px;
+      flex: 1;
+      padding: 32px 48px;
+      max-width: 1400px;
+    }
+
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .command-title {
+      font-size: 32px;
+      color: white;
+      text-shadow: 0 0 12px rgba(255,255,255,0.2);
+    }
+
+    .mock-card {
+      background: rgba(13, 13, 18, 0.85);
+      border: 1px solid var(--cyber-border);
+      border-radius: 14px;
+      padding: 20px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    }
+
+    /* GLOBAL DRAG-AND-DROP OVERLAY */
+    #global-drop-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 8, 12, 0.92);
+      backdrop-filter: blur(16px);
+      z-index: 999;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 3px dashed var(--neon-cyan);
+      animation: pulseCyan 1.8s infinite;
+    }
+
+    #global-drop-overlay.visible {
+      display: flex;
+    }
+
+    .radar-sweep {
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 100%;
+      background: linear-gradient(180deg, transparent 0%, rgba(56, 189, 248, 0.15) 50%, transparent 100%);
+      animation: radarSweep 3s linear infinite;
+      pointer-events: none;
+    }
+
+    /* MODAL DIALOG */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(20px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-window {
+      background: #0d0d14;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      box-shadow: 0 0 50px rgba(56, 189, 248, 0.2), inset 0 0 20px rgba(56, 189, 248, 0.05);
+      border-radius: 18px;
+      max-width: 640px;
+      width: 100%;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* TAB NAVIGATION HEADER */
+    .tab-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(0, 0, 0, 0.4);
+    }
+
+    .tab-switcher {
+      display: flex;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .tab-btn {
+      padding: 8px 18px;
+      font-size: 11px;
+      border-radius: 7px;
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tab-btn:hover {
+      color: white;
+    }
+
+    .tab-btn.active {
+      background: rgba(56, 189, 248, 0.2);
+      border: 1px solid rgba(56, 189, 248, 0.5);
+      color: var(--neon-cyan);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+    }
+
+    .tab-count {
+      background: rgba(56, 189, 248, 0.3);
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-size: 10px;
+      color: white;
+    }
+
+    .close-btn {
+      background: transparent;
+      border: none;
+      color: #64748b;
+      cursor: pointer;
+      font-size: 20px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .close-btn:hover {
+      color: white;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* TAB CONTENT */
+    .tab-body {
+      padding: 24px;
+    }
+
+    /* DROP AREA */
+    .dropzone-box {
+      border: 2px dashed rgba(56, 189, 248, 0.4);
+      background: rgba(56, 189, 248, 0.03);
+      border-radius: 14px;
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .dropzone-box:hover, .dropzone-box.dragover {
+      border-color: var(--neon-cyan);
+      background: rgba(56, 189, 248, 0.08);
+      box-shadow: 0 0 30px rgba(56, 189, 248, 0.2);
+      transform: scale(1.01);
+    }
+
+    .drop-icon-pulse {
+      width: 54px;
+      height: 54px;
+      color: var(--neon-cyan);
+      margin: 0 auto 16px;
+      filter: drop-shadow(0 0 8px var(--neon-cyan));
+    }
+
+    /* CONTROLS ROW (TTL & OPTIONS) */
+    .control-group {
+      margin-top: 20px;
+    }
+
+    .control-label {
+      font-size: 10px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .ttl-options {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .ttl-pill {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 8px 4px;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: #cbd5e1;
+    }
+
+    .ttl-pill:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+      color: white;
+    }
+
+    .ttl-pill.selected {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: var(--neon-cyan);
+      color: var(--neon-cyan);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+    }
+
+    .burn-checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 16px;
+      padding: 12px 16px;
+      background: rgba(244, 63, 94, 0.08);
+      border: 1px solid rgba(244, 63, 94, 0.25);
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .burn-checkbox-row input {
+      accent-color: var(--neon-red);
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    /* UPLOAD BUTTON */
+    .stage-btn {
+      width: 100%;
+      margin-top: 20px;
+      padding: 14px;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.3), rgba(167, 139, 250, 0.3));
+      border: 1px solid var(--neon-cyan);
+      color: white;
+      border-radius: 10px;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.2s ease;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
+    }
+
+    .stage-btn:hover {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.5), rgba(167, 139, 250, 0.5));
+      box-shadow: 0 0 30px rgba(56, 189, 248, 0.5);
+      transform: translateY(-1px);
+    }
+
+    /* PROGRESS BAR */
+    .progress-bar-container {
+      display: none;
+      margin-top: 20px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      height: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple));
+      box-shadow: 0 0 12px var(--neon-cyan);
+      transition: width 0.3s ease;
+    }
+
+    /* SUCCESS RESULT CARD (QR + LINK) */
+    .success-card {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 12px 0;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .qr-container {
+      background: white;
+      padding: 14px;
+      border-radius: 12px;
+      margin: 16px 0;
+      box-shadow: 0 0 25px rgba(255,255,255,0.2);
+    }
+
+    .link-copy-box {
+      display: flex;
+      align-items: center;
+      background: #08080c;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 10px;
+      padding: 8px 12px;
+      width: 100%;
+      max-width: 440px;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .link-text {
+      flex: 1;
+      font-size: 11px;
+      color: var(--neon-cyan);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: left;
+    }
+
+    .copy-btn {
+      background: rgba(56, 189, 248, 0.2);
+      border: 1px solid var(--neon-cyan);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover {
+      background: var(--neon-cyan);
+      color: black;
+    }
+
+    /* ACTIVE DROPS LIST */
+    .active-drops-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 420px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .drop-item-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 14px 18px;
+      transition: all 0.2s ease;
+    }
+
+    .drop-item-row:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .drop-meta-badges {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .badge-pill {
+      font-size: 9px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-ttl {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--neon-cyan);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .badge-onetime {
+      background: rgba(244, 63, 94, 0.15);
+      color: var(--neon-red);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+    }
+
+    .badge-pwd {
+      background: rgba(167, 139, 250, 0.15);
+      color: var(--neon-purple);
+      border: 1px solid rgba(167, 139, 250, 0.3);
+    }
+
+    .item-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-action-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.4);
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .icon-action-btn:hover {
+      color: white;
+      border-color: white;
+    }
+
+    .icon-action-btn.delete:hover {
+      color: var(--neon-red);
+      border-color: var(--neon-red);
+      background: rgba(244, 63, 94, 0.15);
+    }
+
+    /* FLOATING TESTING TOOLBAR */
+    .test-toolbar {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(13, 13, 20, 0.95);
+      border: 1px solid var(--neon-cyan);
+      box-shadow: 0 0 30px rgba(56, 189, 248, 0.3);
+      padding: 10px 18px;
+      border-radius: 40px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 10000;
+    }
+
+    .test-btn {
+      padding: 8px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+      color: white;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .test-btn:hover {
+      background: var(--neon-cyan);
+      color: black;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="scanlines"></div>
+
+  <!-- GLOBAL DRAG OVERLAY -->
+  <div id="global-drop-overlay">
+    <div class="radar-sweep"></div>
+    <div style="text-align: center; position: relative; z-index: 10;">
+      <svg class="drop-icon-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242M12 12v9m0-9l-3 3m3-3l3 3"/>
+      </svg>
+      <h2 class="font-vt323" style="font-size: 42px; color: #fff; letter-spacing: 2px;">DROP FILE TO STAGE ON DROPZONE</h2>
+      <p class="font-silkscreen" style="font-size: 12px; color: var(--neon-cyan); margin-top: 8px;">// RELEASING FILE WILL INITIATE STAGING PROTOCOL</p>
+    </div>
+  </div>
+
+  <div class="dashboard-layout">
+    <!-- SIDEBAR WITH SPOTLIGHT ON NEW DROPZONE ICON -->
+    <aside class="sidebar">
+      <div class="sidebar-icon" title="Command Center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
+      </div>
+      <div class="sidebar-icon" title="Home Assistant">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </div>
+      <div class="sidebar-icon" title="Media Library">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+      </div>
+      
+      <!-- NEW FEATURE: DROPZONE BUTTON -->
+      <div class="sidebar-icon active" id="sidebar-drop-trigger" onclick="openDropModal('upload')" title="Open Homelab Dropzone">
+        <span class="feature-badge">NEW</span>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/>
+          <path d="M12 12v9"/>
+          <path d="m16 16-4-4-4 4"/>
+        </svg>
+      </div>
+
+      <div class="sidebar-icon" title="Search Media">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
+      </div>
+      <div class="sidebar-icon" title="FileBrowser">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+      </div>
+    </aside>
+
+    <!-- MAIN DASHBOARD BEHIND MODAL -->
+    <main class="main-content">
+      <div class="header-row">
+        <div>
+          <h1 class="command-title font-vt323">HELLO, TIAGO</h1>
+          <div class="font-silkscreen" style="font-size: 11px; color: var(--neon-cyan); letter-spacing: 1px;">
+            COMMAND CENTER // HOMELAB DROPZONE INTEGRATION
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <div class="font-silkscreen" style="font-size: 11px; color: #64748b;">RIO, RJ // 24°C</div>
+        </div>
+      </div>
+
+      <!-- MOCK OF DASHBOARD SECTIONS -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 24px;">
+        <div class="mock-card">
+          <div class="font-silkscreen" style="font-size: 10px; color: #64748b; margin-bottom: 6px;">PROCESSOR</div>
+          <div class="font-pixel" style="font-size: 26px; color: white;">18%</div>
+        </div>
+        <div class="mock-card">
+          <div class="font-silkscreen" style="font-size: 10px; color: #64748b; margin-bottom: 6px;">MEMORY</div>
+          <div class="font-pixel" style="font-size: 26px; color: white;">7.4 GB</div>
+        </div>
+        <div class="mock-card">
+          <div class="font-silkscreen" style="font-size: 10px; color: #64748b; margin-bottom: 6px;">NETWORK I/O</div>
+          <div class="font-pixel" style="font-size: 26px; color: white;">0.22 MB/s</div>
+        </div>
+        <div class="mock-card">
+          <div class="font-silkscreen" style="font-size: 10px; color: #64748b; margin-bottom: 6px;">DROPZONE STAGED</div>
+          <div class="font-pixel" style="font-size: 26px; color: var(--neon-cyan);">3 ACTIVE</div>
+        </div>
+      </div>
+
+      <div class="mock-card" style="padding: 28px; text-align: center; border: 1px dashed rgba(56, 189, 248, 0.3);">
+        <h3 class="font-vt323" style="font-size: 28px; color: white;">HOMELAB DROPZONE TEST BENCH</h3>
+        <p class="font-silkscreen" style="font-size: 11px; color: #94a3b8; margin: 8px 0 16px;">
+          Try dragging any file from your computer over this page, or use the controls below:
+        </p>
+        <button class="test-btn" style="background: var(--neon-cyan); color: #000; font-weight: bold; padding: 10px 24px;" onclick="openDropModal('upload')">
+          LAUNCH DROPZONE MODAL
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <!-- DROPZONE MODAL -->
+  <div class="modal-backdrop" id="dropzone-modal">
+    <div class="modal-window">
+      
+      <!-- TAB NAVIGATION (EXACT DEMONSTRATION OF TAB SWITCHER) -->
+      <div class="tab-header">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--neon-cyan)" stroke-width="2">
+            <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/>
+            <path d="M12 12v9"/>
+            <path d="m16 16-4-4-4 4"/>
+          </svg>
+          <span class="font-vt323" style="font-size: 26px; color: white; letter-spacing: 1px;">HOMELAB DROPZONE</span>
+        </div>
+
+        <!-- THE 2 TABS: "STAGE DROP" vs "ACTIVE DROPS" -->
+        <div class="tab-switcher font-silkscreen">
+          <button class="tab-btn active" id="tab-upload-btn" onclick="switchTab('upload')">
+            STAGE DROP
+          </button>
+          <button class="tab-btn" id="tab-active-btn" onclick="switchTab('active')">
+            ACTIVE DROPS <span class="tab-count" id="active-badge-count">3</span>
+          </button>
+        </div>
+
+        <button class="close-btn" onclick="closeDropModal()">&times;</button>
+      </div>
+
+      <!-- TAB 1: STAGE DROP VIEW -->
+      <div class="tab-body" id="tab-upload-content">
+        <div class="dropzone-box" id="drop-target-box" onclick="document.getElementById('file-input').click()">
+          <input type="file" id="file-input" style="display: none;" onchange="handleFileSelected(this.files[0])">
+          <svg class="drop-icon-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" x2="12" y1="3" y2="15"/>
+          </svg>
+          <h3 class="font-pixel" style="font-size: 16px; color: white;" id="dropzone-status-text">
+            Drag & Drop file here, or <span style="color: var(--neon-cyan); text-decoration: underline;">Browse</span>
+          </h3>
+          <p class="font-silkscreen" style="font-size: 10px; color: #64748b; margin-top: 6px;">
+            Supports ROMs, APKs, Videos, Archives up to 2GB
+          </p>
+        </div>
+
+        <!-- PROGRESS BAR -->
+        <div class="progress-bar-container" id="progress-container">
+          <div class="progress-bar-fill" id="progress-fill"></div>
+        </div>
+
+        <!-- TTL CONTROLS -->
+        <div class="control-group" id="upload-controls">
+          <label class="control-label font-silkscreen">Expiration Retention (TTL):</label>
+          <div class="ttl-options font-silkscreen">
+            <div class="ttl-pill" onclick="selectTtl(this, '1h')">1 HOUR</div>
+            <div class="ttl-pill selected" onclick="selectTtl(this, '24h')">24 HOURS</div>
+            <div class="ttl-pill" onclick="selectTtl(this, '7d')">7 DAYS</div>
+            <div class="ttl-pill" onclick="selectTtl(this, 'custom')">KEEP</div>
+          </div>
+
+          <!-- ONE-TIME BURN TOGGLE -->
+          <label class="burn-checkbox-row font-silkscreen">
+            <input type="checkbox" id="onetime-toggle">
+            <div>
+              <div style="font-size: 11px; color: var(--neon-red);">🔥 Burn After 1 Download</div>
+              <div style="font-size: 9px; color: #94a3b8; margin-top: 2px;">File self-destructs immediately after first recipient finishes download</div>
+            </div>
+          </label>
+
+          <!-- STAGE BUTTON -->
+          <button class="stage-btn font-pixel" onclick="simulateUpload()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            STAGE FILE & GENERATE LINK
+          </button>
+        </div>
+
+        <!-- SUCCESS VIEW WITH QR CODE & LINK -->
+        <div class="success-card" id="success-view">
+          <div style="display: flex; align-items: center; gap: 8px; color: var(--neon-green);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="font-pixel" style="font-size: 16px; font-weight: bold;">DROP STAGED SUCCESSFULLY!</span>
+          </div>
+          <p class="font-silkscreen" style="font-size: 10px; color: #94a3b8; margin-top: 4px;">
+            Scan QR code on your phone or copy the short link below:
+          </p>
+
+          <div class="qr-container" id="qrcode-box"></div>
+
+          <div class="link-copy-box">
+            <span class="link-text font-pixel" id="share-link-text">https://homelab.pangolin-gorgon.ts.net/d/a9f2bc</span>
+            <button class="copy-btn font-silkscreen" onclick="copyLink()">COPY</button>
+          </div>
+
+          <button class="test-btn" style="background: transparent; color: #94a3b8; border-color: #334155;" onclick="resetUploadForm()">
+            + Stage Another File
+          </button>
+        </div>
+      </div>
+
+      <!-- TAB 2: ACTIVE DROPS LIST VIEW -->
+      <div class="tab-body" id="tab-active-content" style="display: none;">
+        <div class="active-drops-list" id="active-drops-container">
+          
+          <!-- SAMPLE DROP 1 -->
+          <div class="drop-item-row" id="drop-1">
+            <div>
+              <div class="font-pixel" style="font-size: 14px; color: white;">Chrono_Trigger_Patched.sfc</div>
+              <div class="font-silkscreen" style="font-size: 10px; color: #64748b; margin-top: 2px;">4.1 MB &bull; Staged 2 hours ago</div>
+              <div class="drop-meta-badges font-silkscreen">
+                <span class="badge-pill badge-ttl">⏱️ EXPIRES IN 22H</span>
+                <span class="badge-pill badge-onetime">🔥 1-TIME BURN</span>
+              </div>
+            </div>
+            <div class="item-actions">
+              <button class="icon-action-btn" title="Copy Share Link" onclick="alert('Link copied to clipboard!')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              </button>
+              <button class="icon-action-btn delete" title="Burn / Delete Now" onclick="deleteDropItem('drop-1')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- SAMPLE DROP 2 -->
+          <div class="drop-item-row" id="drop-2">
+            <div>
+              <div class="font-pixel" style="font-size: 14px; color: white;">s24_backup_keys_2026.kdbx</div>
+              <div class="font-silkscreen" style="font-size: 10px; color: #64748b; margin-top: 2px;">180 KB &bull; Staged 45 min ago</div>
+              <div class="drop-meta-badges font-silkscreen">
+                <span class="badge-pill badge-ttl">⏱️ EXPIRES IN 15M</span>
+                <span class="badge-pill badge-pwd">🔒 PASSCODE PROTECTED</span>
+              </div>
+            </div>
+            <div class="item-actions">
+              <button class="icon-action-btn" title="Copy Share Link" onclick="alert('Link copied!')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              </button>
+              <button class="icon-action-btn delete" title="Burn / Delete Now" onclick="deleteDropItem('drop-2')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- SAMPLE DROP 3 -->
+          <div class="drop-item-row" id="drop-3">
+            <div>
+              <div class="font-pixel" style="font-size: 14px; color: white;">termux-widget-arm64.apk</div>
+              <div class="font-silkscreen" style="font-size: 10px; color: #64748b; margin-top: 2px;">12.8 MB &bull; Staged yesterday</div>
+              <div class="drop-meta-badges font-silkscreen">
+                <span class="badge-pill badge-ttl">⏱️ EXPIRES IN 6 DAYS</span>
+              </div>
+            </div>
+            <div class="item-actions">
+              <button class="icon-action-btn" title="Copy Share Link" onclick="alert('Link copied!')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              </button>
+              <button class="icon-action-btn delete" title="Burn / Delete Now" onclick="deleteDropItem('drop-3')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FLOATING PROTOTYPE CONTROL BAR -->
+  <div class="test-toolbar font-silkscreen">
+    <span style="color: var(--neon-cyan); font-size: 10px; letter-spacing: 1px;">PROTOTYPE CONTROLS:</span>
+    <button class="test-btn" onclick="testGlobalDragAnimation()">1. Test Drag Overlay</button>
+    <button class="test-btn" onclick="switchTab('upload')">2. Upload Tab</button>
+    <button class="test-btn" onclick="switchTab('active')">3. Active Drops Tab</button>
+    <button class="test-btn" onclick="simulateUpload()">4. Simulate Upload + QR</button>
+  </div>
+
+  <script>
+    let activeDropCount = 3;
+
+    function openDropModal(tab = 'upload') {
+      document.getElementById('dropzone-modal').style.display = 'flex';
+      switchTab(tab);
+    }
+
+    function closeDropModal() {
+      document.getElementById('dropzone-modal').style.display = 'none';
+    }
+
+    function switchTab(tab) {
+      const uploadBtn = document.getElementById('tab-upload-btn');
+      const activeBtn = document.getElementById('tab-active-btn');
+      const uploadContent = document.getElementById('tab-upload-content');
+      const activeContent = document.getElementById('tab-active-content');
+
+      if (tab === 'upload') {
+        uploadBtn.classList.add('active');
+        activeBtn.classList.remove('active');
+        uploadContent.style.display = 'block';
+        activeContent.style.display = 'none';
+      } else {
+        activeBtn.classList.add('active');
+        uploadBtn.classList.remove('active');
+        uploadContent.style.display = 'none';
+        activeContent.style.display = 'block';
+      }
+    }
+
+    function selectTtl(el, ttl) {
+      document.querySelectorAll('.ttl-pill').forEach(p => p.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
+    function handleFileSelected(file) {
+      if (!file) return;
+      document.getElementById('dropzone-status-text').innerHTML = `Selected: <b style="color:var(--neon-cyan)">${file.name}</b> (${(file.size / (1024*1024)).toFixed(1)} MB)`;
+    }
+
+    function simulateUpload() {
+      openDropModal('upload');
+      const progressContainer = document.getElementById('progress-container');
+      const progressFill = document.getElementById('progress-fill');
+      const uploadControls = document.getElementById('upload-controls');
+      const successView = document.getElementById('success-view');
+
+      progressContainer.style.display = 'block';
+      uploadControls.style.display = 'none';
+
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 10;
+        progressFill.style.width = progress + '%';
+        if (progress >= 100) {
+          clearInterval(interval);
+          setTimeout(() => {
+            progressContainer.style.display = 'none';
+            successView.style.display = 'flex';
+            generateMockQr();
+          }, 300);
+        }
+      }, 100);
+    }
+
+    function generateMockQr() {
+      const qrBox = document.getElementById('qrcode-box');
+      qrBox.innerHTML = '';
+      const url = document.getElementById('share-link-text').innerText;
+      if (typeof QRCode !== 'undefined') {
+        new QRCode(qrBox, {
+          text: url,
+          width: 140,
+          height: 140,
+          colorDark : "#000000",
+          colorLight : "#ffffff",
+          correctLevel : QRCode.CorrectLevel.H
+        });
+      }
+    }
+
+    function resetUploadForm() {
+      document.getElementById('progress-fill').style.width = '0%';
+      document.getElementById('progress-container').style.display = 'none';
+      document.getElementById('upload-controls').style.display = 'block';
+      document.getElementById('success-view').style.display = 'none';
+      document.getElementById('dropzone-status-text').innerHTML = `Drag & Drop file here, or <span style="color: var(--neon-cyan); text-decoration: underline;">Browse</span>`;
+    }
+
+    function copyLink() {
+      const link = document.getElementById('share-link-text').innerText;
+      navigator.clipboard.writeText(link).then(() => {
+        const btn = document.querySelector('.copy-btn');
+        btn.innerText = 'COPIED!';
+        setTimeout(() => btn.innerText = 'COPY', 2000);
+      });
+    }
+
+    function deleteDropItem(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.style.opacity = '0';
+        el.style.transform = 'translateX(20px)';
+        setTimeout(() => {
+          el.remove();
+          activeDropCount = Math.max(0, activeDropCount - 1);
+          document.getElementById('active-badge-count').innerText = activeDropCount;
+        }, 200);
+      }
+    }
+
+    function testGlobalDragAnimation() {
+      const overlay = document.getElementById('global-drop-overlay');
+      overlay.classList.add('visible');
+      setTimeout(() => {
+        overlay.classList.remove('visible');
+        openDropModal('upload');
+      }, 1800);
+    }
+
+    // REAL DRAG AND DROP DETECTION ON WINDOW
+    window.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      document.getElementById('global-drop-overlay').classList.add('visible');
+    });
+
+    window.addEventListener('dragleave', (e) => {
+      if (e.clientX === 0 || e.clientY === 0) {
+        document.getElementById('global-drop-overlay').classList.remove('visible');
+      }
+    });
+
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      document.getElementById('global-drop-overlay').classList.remove('visible');
+      if (e.dataTransfer.files.length > 0) {
+        openDropModal('upload');
+        handleFileSelected(e.dataTransfer.files[0]);
+      }
+    });
+
+    // INITIALIZE QR
+    generateMockQr();
+  </script>
+</body>
+</html>

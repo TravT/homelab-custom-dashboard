@@ -3,8 +3,11 @@ import path from 'node:path';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
+import fastifyMultipart from '@fastify/multipart';
 import { config } from './config.js';
 import { apiRoutes } from './routes/api.js';
+import { dropzoneRoutes } from './routes/dropzone.js';
+import { initDropzone, cleanupExpiredDrops } from './services/dropzone.js';
 
 const fastify = Fastify({
   logger: {
@@ -17,8 +20,33 @@ async function main() {
     origin: true,
   });
 
-  // Register API routes
+  // Support up to 2GB multipart streaming uploads
+  await fastify.register(fastifyMultipart, {
+    limits: {
+      fileSize: 2 * 1024 * 1024 * 1024,
+    },
+  });
+
+  // Initialize dropzone persistence
+  await initDropzone();
+
+  // Periodic cleanup of expired drops every 10 minutes
+  setInterval(async () => {
+    try {
+      const count = await cleanupExpiredDrops();
+      if (count > 0) {
+        fastify.log.info(`Cleaned up ${count} expired drops`);
+      }
+    } catch (err) {
+      fastify.log.error(err, 'Dropzone periodic cleanup error');
+    }
+  }, 10 * 60 * 1000);
+
+  // Register API routes (/api/*)
   await fastify.register(apiRoutes, { prefix: '/api' });
+
+  // Register Dropzone routes (/api/drop and /d/:id)
+  await fastify.register(dropzoneRoutes);
 
   // Serve static files if directory exists
   if (fs.existsSync(config.staticDir)) {
@@ -30,7 +58,7 @@ async function main() {
 
     // Fallback for SPA routing
     fastify.setNotFoundHandler((request, reply) => {
-      if (request.url.startsWith('/api')) {
+      if (request.url.startsWith('/api') || request.url.startsWith('/d/')) {
         reply.status(404).send({ error: 'Not Found', url: request.url });
         return;
       }

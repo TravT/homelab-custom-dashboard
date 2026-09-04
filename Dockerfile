@@ -4,7 +4,7 @@
 FROM node:22-alpine AS client-builder
 WORKDIR /app/client
 COPY src/client/package*.json ./
-RUN npm ci
+RUN npm install
 COPY src/client/ ./
 RUN npm run build
 

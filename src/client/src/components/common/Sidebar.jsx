@@ -1,5 +1,5 @@
 import React from 'react';
-import { Server, Home, Play, Search, Folder, GripHorizontal } from 'lucide-react';
+import { Server, Home, Play, Search, Folder, GripHorizontal, UploadCloud } from 'lucide-react';
 
 function SidebarIcon({ icon, active, onClick, title }) {
   return (
@@ -21,7 +21,7 @@ function MobileNavIcon({ icon, active, onClick, title }) {
     <div 
       onClick={onClick}
       title={title}
-      className={`relative flex items-center justify-center p-3.5 cursor-pointer group ${active ? 'text-neon-cyan' : 'text-gray-500 hover:text-gray-300'}`}
+      className={`relative flex items-center justify-center p-2.5 sm:p-3.5 cursor-pointer group ${active ? 'text-neon-cyan' : 'text-gray-500 hover:text-gray-300'}`}
     >
       {active && (
         <div className="absolute top-1 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-neon-cyan shadow-[0_0_8px_#38bdf8] rounded-full"></div>
@@ -33,7 +33,7 @@ function MobileNavIcon({ icon, active, onClick, title }) {
   );
 }
 
-export function Sidebar({ isNavOpen, onToggleNav, onOpenSearch }) {
+export function Sidebar({ isNavOpen, onToggleNav, onOpenSearch, onOpenDropzone }) {
   const scrollToTop = () => {
     const el = document.getElementById('main-scroll');
     if (el) el.scrollTo({ top: 0, behavior: 'smooth' });
@@ -63,6 +63,11 @@ export function Sidebar({ isNavOpen, onToggleNav, onOpenSearch }) {
           icon={<Search size={20} />} 
           title="Search Media (Jellyseerr)"
           onClick={onOpenSearch}
+        />
+        <SidebarIcon 
+          icon={<UploadCloud size={20} />} 
+          title="Homelab Dropzone (AirDrop)"
+          onClick={onOpenDropzone}
         />
         <SidebarIcon 
           icon={<Folder size={20} />} 
@@ -101,6 +106,11 @@ export function Sidebar({ isNavOpen, onToggleNav, onOpenSearch }) {
             icon={<Search size={22} />} 
             title="Search Media"
             onClick={onOpenSearch}
+          />
+          <MobileNavIcon 
+            icon={<UploadCloud size={22} />} 
+            title="Dropzone"
+            onClick={onOpenDropzone}
           />
           <MobileNavIcon 
             icon={<Folder size={22} />} 
