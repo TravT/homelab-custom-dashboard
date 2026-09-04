@@ -117,7 +117,7 @@ async function queryS20ADB(): Promise<{
         target: '100.115.165.41:5555',
         commands: [
           'shell dumpsys battery',
-          'shell dumpsys wifi | grep -m 1 "mWifiInfo SSID:"',
+          'shell dumpsys wifi | grep -m 1 mWifiInfo',
         ],
       }),
       signal: controller.signal,
@@ -139,7 +139,7 @@ async function queryS20ADB(): Promise<{
       const status = statusNum === 2 ? 'Charging' : statusNum === 5 ? 'Full' : 'Discharging';
 
       // Parse Wi-Fi (Real SSID: Link301)
-      const ssidMatch = raw.match(/mWifiInfo SSID:\s*"([^"]+)"/);
+      const ssidMatch = raw.match(/SSID:\s*"([^"\r\n]+)"/);
       const rssiMatch = raw.match(/RSSI:\s*(-?\d+)/);
       const speedMatch = raw.match(/Link speed:\s*(\d+\w+)/);
       const standardMatch = raw.match(/Wi-Fi standard:\s*(\d+)/);
