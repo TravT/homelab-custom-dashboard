@@ -180,249 +180,147 @@ export default function App() {
   const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, items: [] });
   const [selectedMobileDay, setSelectedMobileDay] = useState(null);
 
-  // Netdata real-time streaming for charts (CPU, RAM, Network I/O, Temp, Disk I/O)
+  // Unified Homelab BFF Telemetry & State Stream (Fastify /api/dashboard-state)
   useEffect(() => {
     let isMounted = true;
-    const netdataHost = window.location.hostname || '192.168.0.48';
-    const netdataBase = `http://${netdataHost}:19999/api/v1`;
 
-    const fetchNetdataMetrics = async () => {
+    const fetchDashboardState = async () => {
       try {
-        const [cpuRes, ramRes, lanRes, tailRes, tempRes, diskSpaceRes, diskIoRes] = await Promise.allSettled([
-          fetch(`${netdataBase}/data?chart=system.cpu&points=1&after=-3`).then(r => r.json()),
-          fetch(`${netdataBase}/data?chart=system.ram&points=1&after=-3`).then(r => r.json()),
-          fetch(`${netdataBase}/data?chart=net.enp0s31f6&points=1&after=-3`).then(r => r.json()),
-          fetch(`${netdataBase}/data?chart=net.tailscale0&points=1&after=-3`).then(r => r.json()),
-          fetch(`${netdataBase}/data?chart=sensors.temperature_coretemp-isa-0000_temp1_Package_id_0_input&points=1&after=-3`).then(r => r.json()),
-          fetch(`${netdataBase}/data?chart=disk_space./&points=1&after=-5`).then(r => r.json()),
-          fetch(`${netdataBase}/data?chart=disk.sda&points=1&after=-3`).then(r => r.json())
-        ]);
-
-        if (!isMounted) return;
-
-        let liveCpu = 20;
-        if (cpuRes.status === 'fulfilled' && cpuRes.value?.data?.[0]) {
-          const labels = cpuRes.value.labels;
-          const vals = cpuRes.value.data[0];
-          // Sum non-idle CPU usage
-          const total = labels.reduce((acc, label, idx) => {
-            if (idx > 0 && label !== 'idle') return acc + (Number(vals[idx]) || 0);
-            return acc;
-          }, 0);
-          liveCpu = Math.max(1, Math.min(100, total));
-        }
-
-        let liveRam = 8.0;
-        if (ramRes.status === 'fulfilled' && ramRes.value?.data?.[0]) {
-          const labels = ramRes.value.labels;
-          const vals = ramRes.value.data[0];
-          const usedIdx = labels.indexOf('used');
-          if (usedIdx !== -1) {
-            liveRam = (Number(vals[usedIdx]) || 0) / 1024;
-          }
-        }
-
-        let liveLan = 0;
-        if (lanRes.status === 'fulfilled' && lanRes.value?.data?.[0]) {
-          const vals = lanRes.value.data[0];
-          // Netdata returns kilobits/s for network interfaces
-          const recv = Math.abs(Number(vals[1]) || 0);
-          const sent = Math.abs(Number(vals[2]) || 0);
-          liveLan = (recv + sent) / (8 * 1024); // convert kbps to MB/s
-        }
-
-        let liveTailscale = 0;
-        if (tailRes.status === 'fulfilled' && tailRes.value?.data?.[0]) {
-          const vals = tailRes.value.data[0];
-          const recv = Math.abs(Number(vals[1]) || 0);
-          const sent = Math.abs(Number(vals[2]) || 0);
-          liveTailscale = (recv + sent) / (8 * 1024);
-        }
-
-        let liveTemp = 50;
-        if (tempRes.status === 'fulfilled' && tempRes.value?.data?.[0]) {
-          liveTemp = Number(tempRes.value.data[0][1]) || 50;
-          setCpuTemp(Math.round(liveTemp));
-        }
-
-        if (diskSpaceRes.status === 'fulfilled' && diskSpaceRes.value?.data?.[0]) {
-          const labels = diskSpaceRes.value.labels;
-          const vals = diskSpaceRes.value.data[0];
-          const availIdx = labels.indexOf('avail');
-          const usedIdx = labels.indexOf('used');
-          if (availIdx !== -1 && usedIdx !== -1) {
-            const avail = Number(vals[availIdx]) || 0;
-            const used = Number(vals[usedIdx]) || 0;
-            const total = avail + used;
-            if (total > 0) {
-              setStorageStats(prev => ({
-                ...prev,
-                nvme: {
-                  total_gb: Math.round(total),
-                  used_gb: Math.round(used),
-                  percent: Math.round((used / total) * 100)
-                }
-              }));
-            }
-          }
-        }
-
-        // Live Disk I/O (reads + writes from disk.sda in KiB/s)
-        let liveDiskIOMB = 0;
-        if (diskIoRes.status === 'fulfilled' && diskIoRes.value?.data?.[0]) {
-          const vals = diskIoRes.value.data[0];
-          const reads = Math.abs(Number(vals[1]) || 0);
-          const writes = Math.abs(Number(vals[2]) || 0);
-          const totalKiB = reads + writes;
-          liveDiskIOMB = totalKiB / 1024; // convert KiB/s to MB/s
-
-          if (liveDiskIOMB >= 1) {
-            setDiskIOVal({ val: liveDiskIOMB.toFixed(1), unit: 'MB/s' });
-          } else {
-            setDiskIOVal({ val: Math.round(totalKiB).toString(), unit: 'KB/s' });
-          }
-
-          // Real disk activity indicators: active when > 50 KB/s throughput
-          setNvmeActive(totalKiB > 50);
-          // GDrive activity: active when tailscale or sustained LAN transfer happens
-          setGdriveActive(liveTailscale > 0.1 || (liveLan > 2 && totalKiB > 200));
-        }
-
-        setGraphData(prev => {
-          const last = prev[prev.length - 1];
-          const nextPoint = {
-            time: (last?.time || 0) + 1,
-            cpu: liveCpu,
-            ram: liveRam,
-            lan: liveLan,
-            tailscale: liveTailscale,
-            diskIO: liveDiskIOMB,
-            temp: Math.round(liveTemp)
-          };
-          
-          // If we still have the initial time:0 zero seed, remove it once we have 3 real dots
-          let currentList = prev;
-          if (currentList.length >= 3 && currentList[0]?.time === 0) {
-            currentList = currentList.slice(1);
-          }
-
-          // Maintain a rolling window of up to 30 real data points
-          if (currentList.length < 30) {
-            return [...currentList, nextPoint];
-          }
-          return [...currentList.slice(1), nextPoint];
-        });
-      } catch (err) {
-        console.error('Netdata polling error:', err);
-      }
-    };
-
-    fetchNetdataMetrics();
-    const interval = setInterval(fetchNetdataMetrics, 1500);
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, []);
-
-  // Poll Battery & host power stats from sys-stats-api
-  useEffect(() => {
-    let isMounted = true;
-    const host = window.location.hostname || '192.168.0.48';
-    const fetchBattery = async () => {
-      try {
-        const res = await fetch(`http://${host}:8005/stats`);
-        if (res.ok) {
-          const data = await res.json();
-          if (isMounted) {
-            setBatteryStats({
-              percent: Math.round(data.battery_percent ?? 100),
-              plugged: !!data.power_plugged
-            });
-          }
-        }
-      } catch {
-        // Fallback gracefully if not reachable
-      }
-    };
-
-    fetchBattery();
-    const bInterval = setInterval(fetchBattery, 10000);
-    return () => {
-      isMounted = false;
-      clearInterval(bInterval);
-    };
-  }, []);
-
-  // Fetch live weather for Rio de Janeiro from Open-Meteo (lat: -22.9068, lon: -43.1729)
-  useEffect(() => {
-    let isMounted = true;
-    const fetchWeather = async () => {
-      try {
-        const url = 'https://api.open-meteo.com/v1/forecast?latitude=-22.9068&longitude=-43.1729&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max&timezone=auto&forecast_days=7';
-        const res = await fetch(url);
+        const res = await fetch('/api/dashboard-state');
         if (!res.ok) return;
         const data = await res.json();
-        if (!isMounted || !data.daily?.time) return;
+        if (!isMounted || !data) return;
 
-        const currentTemp = data.current?.temperature_2m != null ? Math.round(data.current.temperature_2m) : Math.round(data.daily.temperature_2m_max[0]);
-        const currentCode = data.current?.weather_code != null ? data.current.weather_code : data.daily.weather_code[0];
+        // 1. Process Netdata metrics
+        if (data.netdata) {
+          const { cpu: cpuData, ram: ramData, lan: lanData, tailscale: tailData, temp: tempData, diskSpace: diskSpaceData, diskIo: diskIoData } = data.netdata;
 
-        const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-        const formatted = data.daily.time.map((dateStr, idx) => {
-          const date = new Date(dateStr + 'T12:00:00');
-          const dayLabel = idx === 0 ? 'TODAY' : dayNames[date.getDay()];
-          const code = idx === 0 ? currentCode : (data.daily.weather_code?.[idx] ?? 0);
-          const tempVal = idx === 0 ? currentTemp : Math.round(data.daily.temperature_2m_max[idx]);
-          return {
-            day: dayLabel,
-            temp: tempVal,
-            icon: getWeatherIcon(code, 16)
-          };
-        });
+          let liveCpu = 20;
+          if (cpuData?.data?.[0]) {
+            const labels = cpuData.labels;
+            const vals = cpuData.data[0];
+            const total = labels.reduce((acc, label, idx) => {
+              if (idx > 0 && label !== 'idle') return acc + (Number(vals[idx]) || 0);
+              return acc;
+            }, 0);
+            liveCpu = Math.max(1, Math.min(100, total));
+          }
 
-        setWeatherData(formatted);
-      } catch (err) {
-        console.error('Weather fetch error:', err);
-      }
-    };
+          let liveRam = 8.0;
+          if (ramData?.data?.[0]) {
+            const labels = ramData.labels;
+            const vals = ramData.data[0];
+            const usedIdx = labels.indexOf('used');
+            if (usedIdx !== -1) {
+              liveRam = (Number(vals[usedIdx]) || 0) / 1024;
+            }
+          }
 
-    fetchWeather();
-    // Refresh weather once every 30 minutes
-    const wInterval = setInterval(fetchWeather, 30 * 60 * 1000);
-    return () => {
-      isMounted = false;
-      clearInterval(wInterval);
-    };
-  }, []);
+          let liveLan = 0;
+          if (lanData?.data?.[0]) {
+            const vals = lanData.data[0];
+            const recv = Math.abs(Number(vals[1]) || 0);
+            const sent = Math.abs(Number(vals[2]) || 0);
+            liveLan = (recv + sent) / (8 * 1024);
+          }
 
-  // Fetch upcoming releases from Sonarr and Radarr
-  useEffect(() => {
-    let isMounted = true;
-    const host = window.location.hostname || '192.168.0.48';
-    const sonarrKey = '8d39d99bab98425c8f22e809a405ddbc';
-    const radarrKey = 'c47ae26b45084cbb8c31d60d32487cb7';
+          let liveTailscale = 0;
+          if (tailData?.data?.[0]) {
+            const vals = tailData.data[0];
+            const recv = Math.abs(Number(vals[1]) || 0);
+            const sent = Math.abs(Number(vals[2]) || 0);
+            liveTailscale = (recv + sent) / (8 * 1024);
+          }
 
-    const fetchReleases = async () => {
-      try {
+          let liveTemp = 50;
+          if (tempData?.data?.[0]) {
+            liveTemp = Number(tempData.data[0][1]) || 50;
+            setCpuTemp(Math.round(liveTemp));
+          }
+
+          if (diskSpaceData?.data?.[0]) {
+            const labels = diskSpaceData.labels;
+            const vals = diskSpaceData.data[0];
+            const availIdx = labels.indexOf('avail');
+            const usedIdx = labels.indexOf('used');
+            if (availIdx !== -1 && usedIdx !== -1) {
+              const avail = Number(vals[availIdx]) || 0;
+              const used = Number(vals[usedIdx]) || 0;
+              const total = avail + used;
+              if (total > 0) {
+                setStorageStats(prev => ({
+                  ...prev,
+                  nvme: {
+                    total_gb: Math.round(total),
+                    used_gb: Math.round(used),
+                    percent: Math.round((used / total) * 100)
+                  }
+                }));
+              }
+            }
+          }
+
+          let liveDiskIOMB = 0;
+          if (diskIoData?.data?.[0]) {
+            const vals = diskIoData.data[0];
+            const reads = Math.abs(Number(vals[1]) || 0);
+            const writes = Math.abs(Number(vals[2]) || 0);
+            const totalKiB = reads + writes;
+            liveDiskIOMB = totalKiB / 1024;
+
+            if (liveDiskIOMB >= 1) {
+              setDiskIOVal({ val: liveDiskIOMB.toFixed(1), unit: 'MB/s' });
+            } else {
+              setDiskIOVal({ val: Math.round(totalKiB).toString(), unit: 'KB/s' });
+            }
+
+            setNvmeActive(totalKiB > 50);
+            setGdriveActive(liveTailscale > 0.1 || (liveLan > 2 && totalKiB > 200));
+          }
+
+          setGraphData(prev => {
+            const last = prev[prev.length - 1];
+            const nextPoint = {
+              time: (last?.time || 0) + 1,
+              cpu: liveCpu,
+              ram: liveRam,
+              lan: liveLan,
+              tailscale: liveTailscale,
+              diskIO: liveDiskIOMB,
+              temp: Math.round(liveTemp)
+            };
+            let currentList = prev;
+            if (currentList.length >= 3 && currentList[0]?.time === 0) {
+              currentList = currentList.slice(1);
+            }
+            if (currentList.length < 30) {
+              return [...currentList, nextPoint];
+            }
+            return [...currentList.slice(1), nextPoint];
+          });
+        }
+
+        // 2. Process Battery & Storage stats from host daemon
+        if (data.battery) {
+          setBatteryStats({
+            percent: Math.round(data.battery.battery_percent ?? 100),
+            plugged: !!data.battery.power_plugged
+          });
+          if (data.battery.storage?.nvme) {
+            setStorageStats(prev => ({
+              ...prev,
+              nvme: data.battery.storage.nvme,
+              gdrive: data.battery.storage.gdrive || prev.gdrive
+            }));
+          }
+        }
+
+        // 3. Process Sonarr & Radarr releases
         const now = new Date();
-        // Fetch a broader window (past 30 days to next 180 days) for calendar month navigation
-        const pastDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        const futureDate = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000);
-        const startStr = pastDate.toISOString().split('T')[0];
-        const endStr = futureDate.toISOString().split('T')[0];
-
-        const [sonarrRes, radarrRes] = await Promise.allSettled([
-          fetch(`http://${host}:8989/api/v3/calendar?apiKey=${sonarrKey}&includeSeries=true&start=${startStr}&end=${endStr}`).then(r => r.json()),
-          fetch(`http://${host}:7878/api/v3/calendar?apiKey=${radarrKey}&start=${startStr}&end=${endStr}`).then(r => r.json())
-        ]);
-
-        if (!isMounted) return;
-
         const allReleases = [];
 
-        if (sonarrRes.status === 'fulfilled' && Array.isArray(sonarrRes.value)) {
-          sonarrRes.value.forEach(item => {
+        if (Array.isArray(data.sonarr)) {
+          data.sonarr.forEach(item => {
             const date = new Date(item.airDateUtc || item.airDate);
             const seriesName = item.series?.title || item.title || 'TV Episode';
             const epTitle = item.title && item.title !== 'TBA' ? item.title : '';
@@ -443,8 +341,8 @@ export default function App() {
           });
         }
 
-        if (radarrRes.status === 'fulfilled' && Array.isArray(radarrRes.value)) {
-          radarrRes.value.forEach(item => {
+        if (Array.isArray(data.radarr)) {
+          data.radarr.forEach(item => {
             const dateStr = item.inCinemas || item.digitalRelease || item.physicalRelease;
             if (!dateStr) return;
             const date = new Date(dateStr);
@@ -463,15 +361,12 @@ export default function App() {
         }
 
         if (allReleases.length > 0) {
-          // Sort by date ascending
           allReleases.sort((a, b) => a.date - b.date);
           setRawReleases(allReleases);
 
-          // Upcoming releases from now onwards
           const futureOnly = allReleases.filter(r => r.date >= new Date(now.getFullYear(), now.getMonth(), now.getDate()));
           const list = futureOnly.length > 0 ? futureOnly : allReleases;
 
-          // Group into TODAY, TOMORROW, THIS WEEK, THIS MONTH
           const cards = [];
           const todayDate = now.getDate();
           const tomorrowDate = new Date(now.getTime() + 24 * 60 * 60 * 1000).getDate();
@@ -520,38 +415,11 @@ export default function App() {
             setReleaseData(cards);
           }
         }
-      } catch (err) {
-        console.error('Calendar release fetch error:', err);
-      }
-    };
 
-    fetchReleases();
-    const rInterval = setInterval(fetchReleases, 10 * 60 * 1000); // 10 min refresh
-    return () => {
-      isMounted = false;
-      clearInterval(rInterval);
-    };
-  }, []);
-
-  // Poll Traefik and Nomad for real cluster service health & response latencies
-  useEffect(() => {
-    let isMounted = true;
-    const host = window.location.hostname || '192.168.0.48';
-    const traefikUrl = `http://${host}:8081/api/http/services`;
-    const nomadUrl = `http://${host}:4646/v1/jobs`;
-
-    const checkServiceHealth = async () => {
-      try {
-        const [traefikRes, nomadRes] = await Promise.allSettled([
-          fetch(traefikUrl).then(r => r.json()),
-          fetch(nomadUrl).then(r => r.json())
-        ]);
-        
+        // 4. Process Traefik & Nomad service health
         const healthMap = {};
-
-        // 1. Process Traefik service health
-        if (traefikRes.status === 'fulfilled' && Array.isArray(traefikRes.value)) {
-          traefikRes.value.forEach(svc => {
+        if (Array.isArray(data.traefik)) {
+          data.traefik.forEach(svc => {
             const name = svc.name || '';
             const cleanName = name.split('@')[0].toLowerCase();
             const serverStatus = svc.serverStatus || {};
@@ -564,9 +432,8 @@ export default function App() {
           });
         }
 
-        // 2. Cross-reference Nomad jobs for stopped / dead services (like ollama, llama-cpp)
-        if (nomadRes.status === 'fulfilled' && Array.isArray(nomadRes.value)) {
-          nomadRes.value.forEach(job => {
+        if (Array.isArray(data.nomad)) {
+          data.nomad.forEach(job => {
             const jId = (job.ID || '').toLowerCase();
             const isRunning = job.Status === 'running';
             if (jId === 'ollama') healthMap['ollama'] = { status: isRunning ? 'online' : 'offline', latency: '...' };
@@ -575,52 +442,103 @@ export default function App() {
           });
         }
 
-        // 3. Normalized ID mappings for servicesCatalog
         if (healthMap['traefik-dash'] || healthMap['api']) healthMap['traefik'] = { status: 'online', latency: '...' };
         if (healthMap['files']) healthMap['files'] = { status: healthMap['files'].status, latency: '...' };
         if (healthMap['wsscrcpy']) healthMap['wsscrcpy'] = { status: healthMap['wsscrcpy'].status, latency: '...' };
         if (healthMap['vscode']) healthMap['vscode'] = { status: healthMap['vscode'].status, latency: '...' };
 
-        // Intermediate render so lights turn green/red instantly based on backend state
-        if (isMounted) setServiceHealth({ ...healthMap });
-
-        // 4. Real Ping measurements for all catalog services
-        const flatCatalog = servicesCatalog.flat();
-        await Promise.allSettled(flatCatalog.map(async (svc) => {
-          if (healthMap[svc.id] && healthMap[svc.id].status === 'offline') {
-            healthMap[svc.id].latency = 'Err';
-            return;
-          }
-          
-          const start = performance.now();
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 2000);
-          try {
-            await fetch(svc.url, { method: 'HEAD', mode: 'no-cors', cache: 'no-store', signal: controller.signal });
-            clearTimeout(timeoutId);
-            const duration = Math.max(1, Math.round(performance.now() - start));
-            if (!healthMap[svc.id]) healthMap[svc.id] = { status: 'online' };
-            healthMap[svc.id].latency = `${duration}ms`;
-          } catch (err) {
-            clearTimeout(timeoutId);
-            if (!healthMap[svc.id]) healthMap[svc.id] = { status: 'offline' };
-            healthMap[svc.id].latency = 'Err';
-          }
-        }));
-
-        if (isMounted) {
-          setServiceHealth({ ...healthMap });
-        }
+        setServiceHealth(prev => ({ ...prev, ...healthMap }));
       } catch (err) {
-        console.error('Cluster health poll error:', err);
+        console.error('BFF dashboard-state polling error:', err);
       }
     };
 
-    checkServiceHealth();
-    const healthInterval = setInterval(checkServiceHealth, 10000); // Poll every 10s
+    fetchDashboardState();
+    const stateInterval = setInterval(fetchDashboardState, 2000);
+
     return () => {
       isMounted = false;
-      clearInterval(healthInterval);
+      clearInterval(stateInterval);
+    };
+  }, []);
+
+
+  // Fetch live weather for Rio de Janeiro from Open-Meteo (lat: -22.9068, lon: -43.1729)
+  useEffect(() => {
+    let isMounted = true;
+    const fetchWeather = async () => {
+      try {
+        const url = 'https://api.open-meteo.com/v1/forecast?latitude=-22.9068&longitude=-43.1729&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max&timezone=auto&forecast_days=7';
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!isMounted || !data.daily?.time) return;
+
+        const currentTemp = data.current?.temperature_2m != null ? Math.round(data.current.temperature_2m) : Math.round(data.daily.temperature_2m_max[0]);
+        const currentCode = data.current?.weather_code != null ? data.current.weather_code : data.daily.weather_code[0];
+
+        const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+        const formatted = data.daily.time.map((dateStr, idx) => {
+          const date = new Date(dateStr + 'T12:00:00');
+          const dayLabel = idx === 0 ? 'TODAY' : dayNames[date.getDay()];
+          const code = idx === 0 ? currentCode : (data.daily.weather_code?.[idx] ?? 0);
+          const tempVal = idx === 0 ? currentTemp : Math.round(data.daily.temperature_2m_max[idx]);
+          return {
+            day: dayLabel,
+            temp: tempVal,
+            icon: getWeatherIcon(code, 16)
+          };
+        });
+
+        setWeatherData(formatted);
+      } catch (err) {
+        console.error('Weather fetch error:', err);
+      }
+    };
+
+    fetchWeather();
+    // Refresh weather once every 30 minutes
+    const wInterval = setInterval(fetchWeather, 30 * 60 * 1000);
+    return () => {
+      isMounted = false;
+      clearInterval(wInterval);
+    };
+  }, []);
+
+  // Background LAN reachability ping for catalog services
+  useEffect(() => {
+    let isMounted = true;
+    const pingServices = async () => {
+      const flatCatalog = servicesCatalog.flat();
+      await Promise.allSettled(flatCatalog.map(async (svc) => {
+        if (!isMounted) return;
+        const start = performance.now();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        try {
+          await fetch(svc.url, { method: 'HEAD', mode: 'no-cors', cache: 'no-store', signal: controller.signal });
+          clearTimeout(timeoutId);
+          const duration = Math.max(1, Math.round(performance.now() - start));
+          if (isMounted) {
+            setServiceHealth(prev => ({
+              ...prev,
+              [svc.id]: {
+                ...(prev[svc.id] || { status: 'online' }),
+                latency: `${duration}ms`
+              }
+            }));
+          }
+        } catch {
+          clearTimeout(timeoutId);
+        }
+      }));
+    };
+
+    pingServices();
+    const pingInterval = setInterval(pingServices, 15000);
+    return () => {
+      isMounted = false;
+      clearInterval(pingInterval);
     };
   }, []);
 
