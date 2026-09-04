@@ -39,3 +39,6 @@ export const getWeatherDisplayClass = (idx) => {
   if (idx === 5) return 'hidden xl:flex';
   return 'hidden 2xl:flex';
 };
+
+export const getDisplayClass = getWeatherDisplayClass;
+
