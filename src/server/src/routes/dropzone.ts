@@ -5,6 +5,8 @@ import {
   getDrop,
   verifyPassword,
   onDownloadStarted,
+  burnDrop,
+  shredDropFiles,
   deleteDrop,
   listActiveDrops,
 } from '../services/dropzone.js';
@@ -46,14 +48,14 @@ export const dropzoneRoutes: FastifyPluginAsync = async (fastify: FastifyInstanc
     return reply.send({ drops, count: drops.length });
   });
 
-  // 3. DELETE /api/drop/:id - Manual revocation / purge
+  // 3. DELETE /api/drop/:id - Shred/revoke drop manually
   fastify.delete<{ Params: { id: string } }>('/api/drop/:id', async (request, reply) => {
     const { id } = request.params;
-    const deleted = await deleteDrop(id);
-    if (!deleted) {
-      return reply.code(404).send({ error: 'Drop not found or already expired' });
+    const success = await deleteDrop(id);
+    if (!success) {
+      return reply.code(404).send({ error: 'Drop not found or already deleted' });
     }
-    return reply.send({ success: true, id });
+    return reply.send({ success: true, message: 'Drop purged successfully' });
   });
 
   // 4. GET /d/:id - Public download gateway with password & one-time handling
@@ -75,8 +77,9 @@ export const dropzoneRoutes: FastifyPluginAsync = async (fastify: FastifyInstanc
 
       // Handle password check
       if (drop.hasPassword && !verifyPassword(drop, pwd)) {
+        const statusCode = pwd ? 403 : 200;
         return reply
-          .code(200)
+          .code(statusCode)
           .type('text/html; charset=utf-8')
           .send(renderPasswordUnlockPage(drop, !!pwd));
       }
@@ -87,10 +90,19 @@ export const dropzoneRoutes: FastifyPluginAsync = async (fastify: FastifyInstanc
       reply.header('Content-Type', drop.mimeType || 'application/octet-stream');
       reply.header('Content-Length', stat.size);
 
-      // Record download and burn if one-time
-      await onDownloadStarted(drop.id);
-
       const stream = fs.createReadStream(filePath);
+
+      if (drop.oneTime) {
+        // Immediately burn from active index so no subsequent download can start
+        await burnDrop(drop.id);
+        // Shred physical files when the read stream ends
+        stream.on('close', () => {
+          shredDropFiles(drop.id).catch(() => {});
+        });
+      } else {
+        await onDownloadStarted(drop.id);
+      }
+
       return reply.send(stream);
     }
   );

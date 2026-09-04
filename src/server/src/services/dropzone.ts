@@ -145,29 +145,29 @@ export async function onDownloadStarted(id: string): Promise<void> {
   if (!drop) return;
 
   drop.downloadCount += 1;
-  if (drop.oneTime) {
-    // Burn immediately on one-time download
-    await deleteDrop(id);
-  } else {
-    await saveIndex();
-  }
+  await saveIndex();
 }
 
-export async function deleteDrop(id: string): Promise<boolean> {
-  const drop = dropsIndex.get(id);
+export async function burnDrop(id: string): Promise<void> {
   dropsIndex.delete(id);
   await saveIndex().catch(() => {});
+}
 
+export async function shredDropFiles(id: string): Promise<void> {
   try {
     const dropFileDir = path.join(FILES_DIR, id);
     if (fs.existsSync(dropFileDir)) {
       await fs.promises.rm(dropFileDir, { recursive: true, force: true });
     }
   } catch (err) {
-    console.error(`Failed to delete drop directory ${id}:`, err);
+    console.error(`Failed to shred drop files for ${id}:`, err);
   }
+}
 
-  return !!drop;
+export async function deleteDrop(id: string): Promise<boolean> {
+  await burnDrop(id);
+  await shredDropFiles(id);
+  return true;
 }
 
 export async function cleanupExpiredDrops(): Promise<number> {
