@@ -1,34 +1,19 @@
 import React from 'react';
-
-/**
- * Cyber segmented bar with glow for fleet cards
- */
-function FleetSegBar({ percent, color, totalSegments = 10 }) {
-  const filled = Math.round((percent / 100) * totalSegments);
-  return (
-    <div className="flex gap-[3px] h-[8px] mt-1.5 w-full">
-      {Array.from({ length: totalSegments }).map((_, i) => (
-        <div
-          key={i}
-          className="flex-1 rounded-[2px] transition-all duration-300"
-          style={{
-            backgroundColor: i < filled ? color : 'rgba(255, 255, 255, 0.08)',
-            boxShadow: i < filled ? `0 0 6px ${color}` : 'none',
-          }}
-        />
-      ))}
-    </div>
-  );
-}
+import { SegmentedBar } from './SegmentedBar.jsx';
 
 /**
  * Symmetrical Node Card for Fleet Deck
+ * Uses exact same SegmentedBar component as top Storage Tiering card for 100% visual consistency.
  */
 export function FleetNodeCard({ node, icon, cardColor, isBreathing }) {
   if (!node) return null;
 
   const isOnline = node.status === 'online';
   const isStandby = node.status === 'standby';
+
+  // Calculate 10-step filled count
+  const filledBar1 = Math.max(1, Math.min(10, Math.round((node.bar1.percent / 100) * 10)));
+  const filledBar2 = Math.max(1, Math.min(10, Math.round((node.bar2.percent / 100) * 10)));
 
   return (
     <div
@@ -46,10 +31,10 @@ export function FleetNodeCard({ node, icon, cardColor, isBreathing }) {
       />
 
       {/* Card Header */}
-      <div className="flex justify-between items-start mb-3.5">
+      <div className="flex justify-between items-start mb-4">
         <div className="flex gap-2.5 items-center">
           <div
-            className="w-9 h-9 rounded-lg border flex items-center justify-center text-lg"
+            className="w-9 h-9 rounded-lg border flex items-center justify-center text-lg shadow-inner"
             style={{
               backgroundColor: 'rgba(255, 255, 255, 0.04)',
               borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -58,7 +43,7 @@ export function FleetNodeCard({ node, icon, cardColor, isBreathing }) {
             {icon}
           </div>
           <div>
-            <h3 className="font-vt323 text-xl md:text-2xl text-white leading-tight">{node.name}</h3>
+            <h3 className="font-vt323 text-xl md:text-2xl text-white leading-tight tracking-wide">{node.name}</h3>
             <p className="font-silkscreen text-[9px] text-gray-400 tracking-wider uppercase">{node.role}</p>
           </div>
         </div>
@@ -83,26 +68,40 @@ export function FleetNodeCard({ node, icon, cardColor, isBreathing }) {
       </div>
 
       {/* Segmented Bar 1 */}
-      <div className="mb-3">
-        <div className="flex justify-between items-baseline">
+      <div className="mb-3.5">
+        <div className="flex justify-between items-center mb-1.5">
           <span className="font-silkscreen text-[10px] text-gray-400 tracking-wide uppercase">{node.bar1.label}</span>
-          <span className="font-vt323 text-base text-gray-200 tracking-wide">{node.bar1.value}</span>
+          <span className="font-vt323 text-lg text-white tracking-wide">{node.bar1.value}</span>
         </div>
-        <FleetSegBar percent={node.bar1.percent} color={node.bar1.color} />
+        <SegmentedBar 
+          filled={filledBar1} 
+          total={10} 
+          colorClass={node.bar1.colorClass || "bg-emerald-400 shadow-[0_0_8px_#34d399]"} 
+          emptyClass="bg-[#27272a]" 
+        />
         {node.bar1.subtext && (
-          <p className="font-silkscreen text-[8px] text-gray-500 tracking-wider mt-1 text-right">{node.bar1.subtext}</p>
+          <div className="flex justify-end mt-1">
+            <span className="font-silkscreen text-[8.5px] text-gray-500 uppercase tracking-wider">{node.bar1.subtext}</span>
+          </div>
         )}
       </div>
 
       {/* Segmented Bar 2 */}
       <div className="mb-4">
-        <div className="flex justify-between items-baseline">
+        <div className="flex justify-between items-center mb-1.5">
           <span className="font-silkscreen text-[10px] text-gray-400 tracking-wide uppercase">{node.bar2.label}</span>
-          <span className="font-vt323 text-base text-gray-200 tracking-wide">{node.bar2.value}</span>
+          <span className="font-vt323 text-lg text-white tracking-wide">{node.bar2.value}</span>
         </div>
-        <FleetSegBar percent={node.bar2.percent} color={node.bar2.color} />
+        <SegmentedBar 
+          filled={filledBar2} 
+          total={10} 
+          colorClass={node.bar2.colorClass || "bg-neon-cyan shadow-[0_0_8px_#38bdf8]"} 
+          emptyClass="bg-[#27272a]" 
+        />
         {node.bar2.subtext && (
-          <p className="font-silkscreen text-[8px] text-gray-500 tracking-wider mt-1 text-right">{node.bar2.subtext}</p>
+          <div className="flex justify-end mt-1">
+            <span className="font-silkscreen text-[8.5px] text-gray-500 uppercase tracking-wider">{node.bar2.subtext}</span>
+          </div>
         )}
       </div>
 
