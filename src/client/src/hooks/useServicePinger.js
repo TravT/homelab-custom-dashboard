@@ -4,6 +4,12 @@ import { servicesCatalog } from '../data/servicesCatalog.jsx';
 export function useServicePinger(setServiceHealth) {
   useEffect(() => {
     let isMounted = true;
+
+    // Skip client direct LAN pings if the dashboard is served over HTTPS / Tailscale Funnel
+    // to prevent browser Mixed Content policy violations (HTTPS -> HTTP)
+    const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+    if (isHttps) return;
+
     const pingServices = async () => {
       const flatCatalog = servicesCatalog.flat();
       await Promise.allSettled(flatCatalog.map(async (svc) => {
@@ -12,14 +18,14 @@ export function useServicePinger(setServiceHealth) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 2000);
         try {
-          await fetch(svc.url, { method: 'HEAD', mode: 'no-cors', cache: 'no-store', signal: controller.signal });
+          await fetch(svc.url, { method: 'GET', mode: 'no-cors', cache: 'no-store', signal: controller.signal });
           clearTimeout(timeoutId);
           const duration = Math.max(1, Math.round(performance.now() - start));
           if (isMounted) {
             setServiceHealth(prev => ({
               ...prev,
               [svc.id]: {
-                ...(prev[svc.id] || { status: 'online' }),
+                status: 'online',
                 latency: `${duration}ms`
               }
             }));

@@ -27,10 +27,12 @@ export function useDashboardState() {
 
     const fetchDashboardState = async () => {
       try {
+        const start = performance.now();
         const res = await fetch('/api/dashboard-state');
         if (!res.ok) return;
         const data = await res.json();
         if (!isMounted || !data) return;
+        const bffLatency = Math.max(1, Math.round(performance.now() - start));
 
         // 1. Process Netdata metrics
         if (data.netdata) {
@@ -268,7 +270,7 @@ export function useDashboardState() {
             const isUp = svc.status === 'enabled' && (servers.length === 0 || servers.includes('UP'));
             healthMap[cleanName] = {
               status: isUp ? 'online' : 'offline',
-              latency: '...'
+              latency: isUp ? `${bffLatency}ms` : 'OFFLINE'
             };
           });
         }
@@ -277,18 +279,33 @@ export function useDashboardState() {
           data.nomad.forEach(job => {
             const jId = (job.ID || '').toLowerCase();
             const isRunning = job.Status === 'running';
-            if (jId === 'ollama') healthMap['ollama'] = { status: isRunning ? 'online' : 'offline', latency: '...' };
-            if (jId === 'llama-cpp' || jId === 'llama') healthMap['llama'] = { status: isRunning ? 'online' : 'offline', latency: '...' };
-            if (jId === 'mosquitto') healthMap['mosquitto'] = { status: isRunning ? 'online' : 'offline', latency: '...' };
+            const jLatency = isRunning ? `${bffLatency}ms` : 'OFFLINE';
+            if (jId === 'ollama') healthMap['ollama'] = { status: isRunning ? 'online' : 'offline', latency: jLatency };
+            if (jId === 'llama-cpp' || jId === 'llama') healthMap['llama'] = { status: isRunning ? 'online' : 'offline', latency: jLatency };
+            if (jId === 'mosquitto') healthMap['mosquitto'] = { status: isRunning ? 'online' : 'offline', latency: jLatency };
           });
         }
 
-        if (healthMap['traefik-dash'] || healthMap['api']) healthMap['traefik'] = { status: 'online', latency: '...' };
-        if (healthMap['files']) healthMap['files'] = { status: healthMap['files'].status, latency: '...' };
-        if (healthMap['wsscrcpy']) healthMap['wsscrcpy'] = { status: healthMap['wsscrcpy'].status, latency: '...' };
-        if (healthMap['vscode']) healthMap['vscode'] = { status: healthMap['vscode'].status, latency: '...' };
+        if (healthMap['traefik-dash'] || healthMap['api']) healthMap['traefik'] = { status: 'online', latency: `${bffLatency}ms` };
+        if (healthMap['files']) healthMap['files'] = { status: healthMap['files'].status, latency: healthMap['files'].status === 'online' ? `${bffLatency}ms` : 'OFFLINE' };
+        if (healthMap['wsscrcpy']) healthMap['wsscrcpy'] = { status: healthMap['wsscrcpy'].status, latency: healthMap['wsscrcpy'].status === 'online' ? `${bffLatency}ms` : 'OFFLINE' };
+        if (healthMap['vscode']) healthMap['vscode'] = { status: healthMap['vscode'].status, latency: healthMap['vscode'].status === 'online' ? `${bffLatency}ms` : 'OFFLINE' };
 
-        setServiceHealth(prev => ({ ...prev, ...healthMap }));
+        setServiceHealth(prev => {
+          const next = { ...prev };
+          for (const [key, val] of Object.entries(healthMap)) {
+            // Keep direct measured ping if valid, otherwise use cluster round-trip bffLatency
+            const prevLatency = prev[key]?.latency;
+            const hasValidPrev = prevLatency && prevLatency !== '...' && prevLatency !== 'OFFLINE';
+            next[key] = {
+              status: val.status,
+              latency: val.status === 'online'
+                ? (hasValidPrev ? prevLatency : val.latency)
+                : 'OFFLINE'
+            };
+          }
+          return next;
+        });
       } catch (err) {
         console.error('BFF dashboard-state polling error:', err);
       }

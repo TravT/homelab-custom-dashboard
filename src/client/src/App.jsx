@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useDashboardState } from './hooks/useDashboardState.js';
+import { useDashboardState } from './hooks/useDashboardState.jsx';
 import { useWeather } from './hooks/useWeather.js';
 import { useServicePinger } from './hooks/useServicePinger.js';
 
