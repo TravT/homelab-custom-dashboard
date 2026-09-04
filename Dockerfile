@@ -14,7 +14,7 @@ RUN npm run build
 FROM node:22-alpine AS server-builder
 WORKDIR /app/server
 COPY src/server/package*.json ./
-RUN npm ci
+RUN npm install
 COPY src/server/ ./
 RUN npm run build
 
@@ -29,7 +29,7 @@ ENV PORT=80
 ENV STATIC_DIR=/app/public
 
 COPY src/server/package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 # Copy compiled server code
 COPY --from=server-builder /app/server/dist ./server-dist
