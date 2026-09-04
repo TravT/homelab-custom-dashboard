@@ -6,6 +6,7 @@ import { useServicePinger } from './hooks/useServicePinger.js';
 import { Header } from './components/common/Header.jsx';
 import { Sidebar } from './components/common/Sidebar.jsx';
 import { HardwareMetrics } from './components/telemetry/HardwareMetrics.jsx';
+import { FleetTelemetry } from './components/telemetry/FleetTelemetry.jsx';
 import { ReleaseRadar } from './components/radar/ReleaseRadar.jsx';
 import { ActiveServices } from './components/services/ActiveServices.jsx';
 import { CVModal } from './components/modals/CVModal.jsx';
@@ -160,6 +161,8 @@ export default function App() {
             nvmeActive={nvmeActive} 
             gdriveActive={gdriveActive} 
           />
+
+          <FleetTelemetry />
 
           <ReleaseRadar 
             releaseData={releaseData} 

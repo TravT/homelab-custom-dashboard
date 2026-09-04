@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Command Center — Feature 2: Fleet Telemetry Mock v4</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Press+Start+2P&family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --neon-cyan: #38bdf8;
+      --neon-purple: #a78bfa;
+      --neon-green: #22c55e;
+      --neon-amber: #f59e0b;
+      --neon-red: #f43f5e;
+      --cyber-card: #0d0d14;
+      --cyber-border: rgba(255, 255, 255, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: #0a0a0c;
+      background-image: radial-gradient(circle at center, rgba(255,255,255,0.05) 1px, transparent 1px);
+      background-size: 24px 24px;
+      color: #e2e8f0;
+      font-family: 'Pixelify Sans', system-ui, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      padding-bottom: 80px;
+    }
+
+    /* TYPOGRAPHY */
+    .font-vt323 { font-family: 'VT323', monospace; }
+    .font-silkscreen { font-family: 'Silkscreen', monospace; }
+    .font-pixel { font-family: 'Pixelify Sans', sans-serif; }
+
+    /* SCANLINE EFFECT */
+    .scanlines {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+      background-size: 100% 3px, 3px 100%;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.4;
+    }
+
+    /* VIEWPORT SIMULATOR WRAPPER */
+    #viewport-container {
+      transition: max-width 0.35s cubic-bezier(0.16, 1, 0.3, 1), margin 0.35s ease;
+      margin: 0 auto;
+      width: 100%;
+      position: relative;
+    }
+
+    .viewport-mobile {
+      max-width: 412px !important;
+      border-left: 2px dashed rgba(56, 189, 248, 0.35);
+      border-right: 2px dashed rgba(56, 189, 248, 0.35);
+      box-shadow: 0 0 60px rgba(0, 0, 0, 0.95);
+      min-height: 100vh;
+      background: #0a0a0c;
+    }
+
+    .viewport-tablet {
+      max-width: 820px !important;
+      border-left: 2px dashed rgba(167, 139, 250, 0.35);
+      border-right: 2px dashed rgba(167, 139, 250, 0.35);
+      box-shadow: 0 0 60px rgba(0, 0, 0, 0.95);
+      min-height: 100vh;
+      background: #0a0a0c;
+    }
+
+    .viewport-desktop {
+      max-width: 100% !important;
+      border: none;
+    }
+
+    /* TOP SIMULATOR TOOLBAR */
+    .sim-bar {
+      background: #08080c;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 10px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      backdrop-blur-md: 10px;
+    }
+
+    .sim-btn-group {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .sim-btn {
+      background: #14141e;
+      color: #94a3b8;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .sim-btn:hover {
+      color: #fff;
+      border-color: var(--neon-cyan);
+    }
+
+    .sim-btn.active {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--neon-cyan);
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+
+    /* ======================================================== */
+    /* ULTRA-SLIM COLLAPSED ACCORDION HEADER (STARTS COLLAPSED)  */
+    /* ======================================================== */
+    .fleet-accordion-header {
+      background: rgba(13, 13, 20, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 6px 16px;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      opacity: 0.85;
+    }
+
+    .fleet-accordion-header:hover {
+      opacity: 1;
+      border-color: rgba(56, 189, 248, 0.35);
+      background: rgba(16, 16, 26, 0.75);
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.15);
+    }
+
+    .fleet-accordion-header.expanded {
+      opacity: 1;
+      border-color: rgba(56, 189, 248, 0.35);
+      border-bottom-left-radius: 0px;
+      border-bottom-right-radius: 0px;
+      border-bottom-color: transparent;
+      background: #0d0d16;
+      padding: 8px 16px;
+      min-height: 38px;
+    }
+
+    .fleet-toggle-btn {
+      white-space: nowrap !important;
+      flex-shrink: 0 !important;
+      min-width: 85px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      font-family: var(--font-silkscreen);
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      color: var(--neon-cyan);
+    }
+
+    /* HEADER STATUS BALLS */
+    .header-status-balls {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: 6px;
+    }
+
+    .header-ball {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+      transition: all 0.3s ease;
+    }
+
+    .header-ball.online {
+      background: var(--neon-green);
+      color: var(--neon-green);
+      box-shadow: 0 0 6px var(--neon-green);
+    }
+
+    .header-ball.standby {
+      background: var(--neon-amber);
+      color: var(--neon-amber);
+      box-shadow: 0 0 6px var(--neon-amber);
+    }
+
+    .header-ball.offline {
+      background: #64748b;
+      color: #64748b;
+    }
+
+    /* BREATHING SLOW GLOW */
+    @keyframes slowBreathGlow {
+      0%, 100% {
+        opacity: 0.3;
+        filter: drop-shadow(0 0 2px var(--card-color, #38bdf8));
+      }
+      50% {
+        opacity: 0.95;
+        filter: drop-shadow(0 0 10px var(--card-color, #38bdf8)) drop-shadow(0 0 18px var(--card-color, #38bdf8));
+      }
+    }
+
+    @keyframes slowBallPulse {
+      0%, 100% {
+        transform: scale(0.92);
+        opacity: 0.65;
+        box-shadow: 0 0 4px currentColor;
+      }
+      50% {
+        transform: scale(1.2);
+        opacity: 1;
+        box-shadow: 0 0 10px currentColor, 0 0 16px currentColor;
+      }
+    }
+
+    .node-card.breathing .card-glow-line {
+      animation: slowBreathGlow 4s ease-in-out infinite;
+    }
+
+    .node-card.breathing {
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 16px rgba(56, 189, 248, 0.08);
+    }
+
+    .header-ball.breathing {
+      animation: slowBallPulse 3.5s ease-in-out infinite;
+    }
+
+    .fleet-content-drawer {
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-top: none;
+      border-bottom-left-radius: 12px;
+      border-bottom-right-radius: 12px;
+      background: rgba(10, 10, 15, 0.96);
+      padding: 18px 16px;
+      display: none;
+      animation: drawerSlide 0.25s ease-out;
+    }
+
+    .fleet-content-drawer.open {
+      display: block;
+    }
+
+    @keyframes drawerSlide {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* CARD STYLES */
+    .cyber-card {
+      background: rgba(13, 13, 20, 0.92);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 18px 18px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .cyber-card:hover {
+      border-color: rgba(56, 189, 248, 0.3);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(56, 189, 248, 0.1);
+    }
+
+    .card-glow-line {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--card-color, var(--neon-cyan)), transparent);
+    }
+
+    /* SEGMENTED BARS */
+    .seg-bar-track {
+      display: flex;
+      gap: 3px;
+      height: 8px;
+      margin-top: 6px;
+      width: 100%;
+    }
+
+    .seg-pill {
+      flex: 1;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.08);
+      transition: background 0.3s;
+    }
+
+    .seg-pill.filled {
+      background: var(--bar-color, var(--neon-cyan));
+      box-shadow: 0 0 6px var(--bar-color, var(--neon-cyan));
+    }
+
+    /* STATUS BADGES */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    .status-online {
+      background: rgba(34, 197, 94, 0.15);
+      border: 1px solid rgba(34, 197, 94, 0.4);
+      color: var(--neon-green);
+    }
+
+    .status-standby {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: var(--neon-amber);
+    }
+
+    .status-paused {
+      background: rgba(148, 163, 184, 0.12);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      color: #94a3b8;
+    }
+
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 6px currentColor;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* ANIMATIONS */
+    @keyframes hddBlink {
+      0%, 100% { opacity: 0.15; }
+      10%, 30% { opacity: 1; filter: drop-shadow(0 0 6px currentColor); }
+      20%, 40% { opacity: 0.2; }
+      50%, 90% { opacity: 0.15; }
+    }
+    .animate-hdd { animation: hddBlink 1.4s infinite; }
+
+    /* ======================================================== */
+    /* TOUCH SNAP CAROUSEL (MOBILE) & RESPONSIVE GRID (DESKTOP) */
+    /* ======================================================== */
+    .fleet-carousel-viewport {
+      width: 100%;
+    }
+
+    .fleet-grid {
+      display: grid;
+      gap: 16px;
+      width: 100%;
+    }
+
+    .viewport-desktop .fleet-grid {
+      grid-template-columns: repeat(3, 1fr) !important;
+    }
+
+    .viewport-tablet .fleet-grid {
+      grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .viewport-tablet #card-s24 {
+      grid-column: span 2;
+    }
+
+    /* PAGINATION PILLS (MOBILE ONLY) - MOVED TO TOP */
+    .carousel-pagination {
+      display: none;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      margin-top: 0px;
+    }
+
+    .carousel-dot {
+      padding: 5px 12px;
+      background: #12121b;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      font-size: 11px;
+      color: #94a3b8;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.25s ease;
+    }
+
+    .carousel-dot.active {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--neon-cyan);
+      color: #fff;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+    }
+
+    .carousel-dot-indicator {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #64748b;
+    }
+
+    .carousel-dot.active .carousel-dot-indicator {
+      background: var(--neon-cyan);
+      box-shadow: 0 0 6px var(--neon-cyan);
+    }
+
+    /* SIMULATOR OVERRIDES */
+    .viewport-mobile .fleet-carousel-viewport {
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .viewport-mobile .fleet-carousel-viewport::-webkit-scrollbar {
+      display: none;
+    }
+
+    .viewport-mobile .fleet-grid {
+      display: flex !important;
+      flex-direction: row !important;
+      gap: 12px !important;
+      width: 100% !important;
+    }
+
+    .viewport-mobile .node-card {
+      flex: 0 0 100% !important;
+      min-width: 100% !important;
+      max-width: 100% !important;
+      scroll-snap-align: center;
+      scroll-snap-stop: always;
+    }
+
+    .viewport-mobile .carousel-pagination {
+      display: flex !important;
+    }
+
+    /* NATIVE MEDIA QUERIES (REAL HARDWARE) */
+    @media (max-width: 639px) {
+      .fleet-carousel-viewport {
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .fleet-carousel-viewport::-webkit-scrollbar {
+        display: none;
+      }
+      .fleet-grid {
+        display: flex !important;
+        flex-direction: row !important;
+        gap: 12px !important;
+        width: 100% !important;
+      }
+      .node-card {
+        flex: 0 0 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        scroll-snap-align: center;
+        scroll-snap-stop: always;
+      }
+      .carousel-pagination {
+        display: flex !important;
+      }
+    }
+
+    @media (min-width: 640px) and (max-width: 1023px) {
+      .fleet-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+      }
+      #card-s24 {
+        grid-column: span 2;
+      }
+      .carousel-pagination {
+        display: none !important;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .fleet-grid {
+        grid-template-columns: repeat(3, 1fr) !important;
+      }
+      #card-s24 {
+        grid-column: span 1;
+      }
+      .carousel-pagination {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="scanlines"></div>
+
+  <!-- VIEWPORT & CONTROLS SIMULATOR BAR -->
+  <header class="sim-bar">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span class="font-vt323" style="font-size: 22px; color: var(--neon-cyan); letter-spacing: 1px;">
+        // FLEET TELEMETRY PROTOTYPE v4
+      </span>
+      <span class="status-badge status-online font-silkscreen" style="font-size: 9px;" id="sim-status-banner">
+        STARTS COLLAPSED • BATTERY SAVING POLLING
+      </span>
+    </div>
+
+    <div class="sim-btn-group">
+      <span style="font-size: 11px; color: #64748b; margin-right: 4px;">VIEWPORT:</span>
+      <button class="sim-btn" id="btn-mobile" onclick="setViewport('mobile')">
+        📱 Mobile (412px)
+      </button>
+      <button class="sim-btn" id="btn-tablet" onclick="setViewport('tablet')">
+        📟 Tablet (820px)
+      </button>
+      <button class="sim-btn active" id="btn-desktop" onclick="setViewport('desktop')">
+        💻 Desktop (Full)
+      </button>
+    </div>
+
+    <div class="sim-btn-group">
+      <span style="font-size: 11px; color: #64748b; margin-right: 4px;">SIMULATE S24:</span>
+      <button class="sim-btn" id="btn-s24-toggle" onclick="toggleS24State()">
+        🟢 Online
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN PAGE CONTENT CONTAINER -->
+  <div id="viewport-container" class="viewport-desktop">
+    <div style="padding: 24px 20px; max-width: 1380px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px;">
+
+      <!-- SECTION 1: PRESERVED TOP METRIC CARDS (UNTOUCHED) -->
+      <section>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
+          <div class="font-vt323" style="font-size: 24px; color: #94a3b8; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--neon-purple);">//</span> TOP SYSTEM METRICS
+          </div>
+          <span class="font-silkscreen" style="font-size: 10px; color: var(--neon-green); background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); padding: 2px 8px; border-radius: 4px;">
+            ✓ 100% PRESERVED & UNTOUCHED
+          </span>
+        </div>
+
+        <!-- 4 Top Cards Grid -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+          <!-- 1. Processor -->
+          <div class="cyber-card" style="--card-color: var(--neon-cyan);">
+            <div class="card-glow-line"></div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div>
+                <span class="font-silkscreen" style="font-size: 11px; color: #94a3b8; letter-spacing: 1px;">PROCESSOR</span>
+                <div class="font-vt323" style="font-size: 38px; color: #fff; line-height: 1; margin-top: 4px;">14%</div>
+              </div>
+              <div class="status-badge status-online font-silkscreen">4 CORES</div>
+            </div>
+            <svg viewBox="0 0 200 45" style="width: 100%; height: 45px; margin-top: 10px; overflow: visible;">
+              <defs>
+                <linearGradient id="cpuGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.4"/>
+                  <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0"/>
+                </linearGradient>
+              </defs>
+              <path d="M 0 35 Q 25 15, 50 28 T 100 20 T 150 12 T 200 22 L 200 45 L 0 45 Z" fill="url(#cpuGrad)" />
+              <path d="M 0 35 Q 25 15, 50 28 T 100 20 T 150 12 T 200 22" fill="none" stroke="#38bdf8" stroke-width="2" />
+            </svg>
+          </div>
+
+          <!-- 2. Memory -->
+          <div class="cyber-card" style="--card-color: var(--neon-purple);">
+            <div class="card-glow-line"></div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div>
+                <span class="font-silkscreen" style="font-size: 11px; color: #94a3b8; letter-spacing: 1px;">MEMORY</span>
+                <div class="font-vt323" style="font-size: 38px; color: #fff; line-height: 1; margin-top: 4px;">6.8 GB</div>
+              </div>
+              <div class="status-badge font-silkscreen" style="background: rgba(167,139,250,0.15); border: 1px solid rgba(167,139,250,0.4); color: var(--neon-purple);">15.5 GB</div>
+            </div>
+            <svg viewBox="0 0 200 45" style="width: 100%; height: 45px; margin-top: 10px; overflow: visible;">
+              <defs>
+                <linearGradient id="ramGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.4"/>
+                  <stop offset="100%" stop-color="#a78bfa" stop-opacity="0.0"/>
+                </linearGradient>
+              </defs>
+              <path d="M 0 28 Q 30 25, 60 27 T 120 25 T 180 26 T 200 25 L 200 45 L 0 45 Z" fill="url(#ramGrad)" />
+              <path d="M 0 28 Q 30 25, 60 27 T 120 25 T 180 26 T 200 25" fill="none" stroke="#a78bfa" stroke-width="2" />
+            </svg>
+          </div>
+
+          <!-- 3. Network & Health FlipCard -->
+          <div class="cyber-card" style="--card-color: var(--neon-green);">
+            <div class="card-glow-line"></div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div>
+                <span class="font-silkscreen" style="font-size: 11px; color: #94a3b8; letter-spacing: 1px;">NETWORK / HEALTH</span>
+                <div class="font-vt323" style="font-size: 34px; color: #fff; line-height: 1; margin-top: 4px;">4.2 MB/s</div>
+              </div>
+              <div class="status-badge status-online font-silkscreen">LAN + TS</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 14px; font-size: 12px; color: #cbd5e1;">
+              <span class="font-silkscreen" style="color: #94a3b8;">NVME: <b style="color: var(--neon-cyan);">42°C</b></span>
+              <span class="font-silkscreen" style="color: #94a3b8;">BATTERY: <b style="color: var(--neon-green);">100% ⚡</b></span>
+            </div>
+          </div>
+
+          <!-- 4. Storage Tiering -->
+          <div class="cyber-card" style="--card-color: #f59e0b;">
+            <div class="card-glow-line"></div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div>
+                <span class="font-silkscreen" style="font-size: 11px; color: #94a3b8; letter-spacing: 1px;">STORAGE TIERING</span>
+                <div class="font-vt323" style="font-size: 34px; color: #fff; line-height: 1; margin-top: 4px;">5.92 TB</div>
+              </div>
+              <div style="color: #f59e0b;" class="animate-hdd">● HDD</div>
+            </div>
+            <div style="margin-top: 10px; font-size: 11px; color: #94a3b8;">
+              <div style="display: flex; justify-content: space-between;">
+                <span>NVMe SSD</span>
+                <span style="color: #fff;">243 GB / 465 GB</span>
+              </div>
+              <div class="seg-bar-track" style="--bar-color: #f59e0b;">
+                <div class="seg-pill filled"></div>
+                <div class="seg-pill filled"></div>
+                <div class="seg-pill filled"></div>
+                <div class="seg-pill"></div>
+                <div class="seg-pill"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2: SLIM COLLAPSIBLE FLEET TELEMETRY DECK (STARTS COLLAPSED) -->
+      <section>
+        <!-- Ultra-Slim Collapsible Bar -->
+        <div class="fleet-accordion-header" id="fleet-header" onclick="toggleFleetAccordion()" title="Click to toggle Fleet Deck">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="font-vt323" style="font-size: 18px; color: var(--neon-cyan); letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+              <span style="color: var(--neon-cyan); opacity: 0.5;">//</span> FLEET NODES
+            </div>
+            <!-- The 3 status balls in the header: Dell, S20 FE, S24 Ultra -->
+            <div class="header-status-balls">
+              <span class="header-ball online" id="h-ball-dell" title="Dell 7390: Online"></span>
+              <span class="header-ball online" id="h-ball-s20fe" title="Galaxy S20 FE: Online"></span>
+              <span class="header-ball standby" id="h-ball-s24" title="Galaxy S24 Ultra: Standby"></span>
+            </div>
+          </div>
+
+          <div class="fleet-toggle-btn">
+            <span id="fleet-toggle-text">[ ▼ EXPAND ]</span>
+          </div>
+        </div>
+
+        <!-- Collapsible Content Drawer -->
+        <div class="fleet-content-drawer" id="fleet-drawer">
+
+          <!-- OPTION A: MOBILE CAROUSEL PAGINATION PILLS (<640px) - AT THE TOP -->
+          <div class="carousel-pagination" id="carousel-dots">
+            <button class="carousel-dot active" id="dot-0" onclick="scrollToNode(0)" title="Dell Latitude 7390">
+              <span class="carousel-dot-indicator header-ball online" style="width: 6px; height: 6px;"></span>
+              <span class="font-vt323" style="font-size: 16px;">💻 DELL 7390</span>
+            </button>
+            <button class="carousel-dot" id="dot-1" onclick="scrollToNode(1)" title="Galaxy S20 FE Edge">
+              <span class="carousel-dot-indicator header-ball online" style="width: 6px; height: 6px;"></span>
+              <span class="font-vt323" style="font-size: 16px;">📱 S20 FE</span>
+            </button>
+            <button class="carousel-dot" id="dot-2" onclick="scrollToNode(2)" title="Galaxy S24 Ultra Daily">
+              <span class="carousel-dot-indicator header-ball standby" id="dot-s24-ind" style="width: 6px; height: 6px;"></span>
+              <span class="font-vt323" style="font-size: 16px;">📲 S24 ULTRA</span>
+            </button>
+          </div>
+
+          <!-- Mobile Carousel Viewport Container -->
+          <div class="fleet-carousel-viewport" id="fleet-viewport">
+            <div class="fleet-grid" id="fleet-container">
+
+              <!-- ======================================================= -->
+              <!-- CARD 1: DELL LATITUDE 7390 (UPS BUFFER + CONTAINER DENSITY) -->
+              <!-- ======================================================= -->
+              <div class="cyber-card node-card" id="card-dell" style="--card-color: var(--neon-cyan);">
+                <div class="card-glow-line"></div>
+                
+                <!-- Card Header -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px;">
+                  <div style="display: flex; gap: 10px; align-items: center;">
+                    <div style="width: 38px; height: 38px; border-radius: 8px; background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.3); display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                      💻
+                    </div>
+                    <div>
+                      <h3 class="font-vt323" style="font-size: 22px; color: #fff; line-height: 1.1;">Dell Latitude 7390</h3>
+                      <p class="font-silkscreen" style="font-size: 9px; color: var(--neon-cyan); letter-spacing: 0.5px;">PRIMARY NODE // 100.125.7.38</p>
+                    </div>
+                  </div>
+                  <span class="status-badge status-online font-silkscreen">
+                    <span class="pulse-dot"></span> PRIMARY
+                  </span>
+                </div>
+
+                <!-- DELL BAR 1: UPS POWER BUFFER (EMERGENCY RUNTIME) -->
+                <div style="margin-bottom: 12px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                    <span class="font-silkscreen" style="color: #94a3b8;">1. UPS POWER BUFFER</span>
+                    <span class="font-vt323" style="font-size: 17px; color: var(--neon-green);">
+                      100% ⚡ AC ON <small style="color: #64748b; font-size: 11px;">(~4.5h Outage Runtime)</small>
+                    </span>
+                  </div>
+                  <div class="seg-bar-track" style="--bar-color: var(--neon-green);">
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                  </div>
+                </div>
+
+                <!-- DELL BAR 2: CONTAINER ENGINE DENSITY -->
+                <div style="margin-bottom: 14px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                    <span class="font-silkscreen" style="color: #94a3b8;">2. CONTAINER DENSITY</span>
+                    <span class="font-vt323" style="font-size: 17px; color: #fff;">
+                      14 Containers <small style="color: var(--neon-cyan); font-size: 11px;">(7 Nomad Jobs)</small>
+                    </span>
+                  </div>
+                  <div class="seg-bar-track" style="--bar-color: var(--neon-cyan);">
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill"></div>
+                    <div class="seg-pill"></div>
+                  </div>
+                </div>
+
+                <!-- 2x2 TILES -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06);">
+                  <div style="background: rgba(255,255,255,0.02); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);">
+                    <div class="font-silkscreen" style="font-size: 9px; color: #64748b;">WORKLOAD ENGINE</div>
+                    <div class="font-vt323" style="font-size: 17px; color: #fff; margin-top: 2px;">
+                      Docker 29.7.2
+                    </div>
+                  </div>
+                  <div style="background: rgba(255,255,255,0.02); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);">
+                    <div class="font-silkscreen" style="font-size: 9px; color: #64748b;">CLUSTER ROLE</div>
+                    <div class="font-vt323" style="font-size: 17px; color: var(--neon-cyan); margin-top: 2px;">
+                      Nomad Leader (dc1)
+                    </div>
+                  </div>
+                  <div style="background: rgba(255,255,255,0.02); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);">
+                    <div class="font-silkscreen" style="font-size: 9px; color: #64748b;">LOAD (1M, 5M, 15M)</div>
+                    <div class="font-vt323" style="font-size: 17px; color: #fff; margin-top: 2px;">
+                      0.24, 0.38, 0.45
+                    </div>
+                  </div>
+                  <div style="background: rgba(255,255,255,0.02); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);">
+                    <div class="font-silkscreen" style="font-size: 9px; color: #64748b;">ACCESS CHANNELS</div>
+                    <div class="font-vt323" style="font-size: 17px; color: var(--neon-purple); margin-top: 2px;">
+                      Traefik + SSH (:22)
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ======================================================= -->
+              <!-- CARD 2: GALAXY S20 FE 5G (EDGE NOMAD NODE)              -->
+              <!-- ======================================================= -->
+              <div class="cyber-card node-card" id="card-s20" style="--card-color: var(--neon-green);">
+                <div class="card-glow-line"></div>
+                
+                <!-- Card Header -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px;">
+                  <div style="display: flex; gap: 10px; align-items: center;">
+                    <div style="width: 38px; height: 38px; border-radius: 8px; background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.3); display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                      📱
+                    </div>
+                    <div>
+                      <h3 class="font-vt323" style="font-size: 22px; color: #fff; line-height: 1.1;">Galaxy S20 FE 5G</h3>
+                      <p class="font-silkscreen" style="font-size: 9px; color: var(--neon-green); letter-spacing: 0.5px;">EDGE NODE // 100.115.165.41</p>
+                    </div>
+                  </div>
+                  <span class="status-badge status-online font-silkscreen" id="s20-status-badge">
+                    <span class="pulse-dot"></span> READY
+                  </span>
+                </div>
+
+                <!-- S20 FE BAR 1: DEVICE BATTERY -->
+                <div style="margin-bottom: 12px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                    <span class="font-silkscreen" style="color: #94a3b8;">1. DEVICE BATTERY</span>
+                    <span class="font-vt323" style="font-size: 17px; color: var(--neon-green);">
+                      69% ⚡ USB-C <small style="color: #64748b; font-size: 11px;">(31.2°C Cell)</small>
+                    </span>
+                  </div>
+                  <div class="seg-bar-track" style="--bar-color: var(--neon-green);">
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill"></div>
+                    <div class="seg-pill"></div>
+                    <div class="seg-pill"></div>
+                  </div>
+                </div>
+
+                <!-- S20 FE BAR 2: NETWORK & WI-FI LINK -->
+                <div style="margin-bottom: 14px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                    <span class="font-silkscreen" style="color: #94a3b8;">2. NETWORK & LINK</span>
+                    <span class="font-vt323" style="font-size: 17px; color: #fff;">
+                      Wi-Fi 5GHz <small style="color: var(--neon-cyan); font-size: 11px;">(-48 dBm RSSI)</small>
+                    </span>
+                  </div>
+                  <div class="seg-bar-track" style="--bar-color: var(--neon-cyan);">
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill"></div>
+                    <div class="seg-pill"></div>
+                  </div>
+                </div>
+
+                <!-- 2x2 TILES -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06);">
+                  <div style="background: rgba(255,255,255,0.02); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);">
+                    <div class="font-silkscreen" style="font-size: 9px; color: #64748b;">WORKLOAD ENGINE</div>
+                    <div class="font-vt323" style="font-size: 17px; color: #fff; margin-top: 2px;">
+                      Nomad (raw_exec ARM64)
+                    </div>
+                  </div>
+                  <div style="background: rgba(255,255,255,0.02); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);">
+                    <div class="font-silkscreen" style="font-size: 9px; color: #64748b;">CLUSTER ROLE</div>
+                    <div class="font-vt323" style="font-size: 17px; color: var(--neon-cyan); margin-top: 2px;">
+                      Edge Client (0 Act)
+                    </div>
+                  </div>
+                  <div style="background: rgba(255,255,255,0.02); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);">
+                    <div class="font-silkscreen" style="font-size: 9px; color: #64748b;">RAM ALLOCATION</div>
+                    <div class="font-vt323" style="font-size: 17px; color: #fff; margin-top: 2px;">
+                      3.7 / 7.8 GB (47%)
+                    </div>
+                  </div>
+                  <div style="background: rgba(255,255,255,0.02); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);">
+                    <div class="font-silkscreen" style="font-size: 9px; color: #64748b;">ACCESS CHANNELS</div>
+                    <div class="font-vt323" style="font-size: 17px; color: var(--neon-purple); margin-top: 2px;">
+                      Root ADB (:5555) + SSH
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ======================================================= -->
+              <!-- CARD 3: GALAXY S24 ULTRA (DAILY DRIVER)                 -->
+              <!-- ======================================================= -->
+              <div class="cyber-card node-card" id="card-s24" style="--card-color: var(--neon-purple);">
+                <div class="card-glow-line"></div>
+                
+                <!-- Card Header -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px;">
+                  <div style="display: flex; gap: 10px; align-items: center;">
+                    <div style="width: 38px; height: 38px; border-radius: 8px; background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.3); display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                      📲
+                    </div>
+                    <div>
+                      <h3 class="font-vt323" style="font-size: 22px; color: #fff; line-height: 1.1;">Galaxy S24 Ultra</h3>
+                      <p class="font-silkscreen" style="font-size: 9px; color: var(--neon-purple); letter-spacing: 0.5px;">DAILY DRIVER // 100.78.115.79</p>
+                    </div>
+                  </div>
+                  <span class="status-badge status-online font-silkscreen" id="s24-status-badge">
+                    <span class="pulse-dot"></span> ONLINE
+                  </span>
+                </div>
+
+                <!-- S24 BAR 1: BATTERY LEVEL -->
+                <div style="margin-bottom: 12px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                    <span class="font-silkscreen" style="color: #94a3b8;">1. BATTERY LEVEL</span>
+                    <span class="font-vt323" style="font-size: 17px; color: var(--neon-green);" id="s24-bat-val">
+                      65% (Discharging) <small style="color: #64748b; font-size: 11px;">(Health: Good)</small>
+                    </span>
+                  </div>
+                  <div class="seg-bar-track" style="--bar-color: var(--neon-green);">
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill"></div>
+                    <div class="seg-pill"></div>
+                    <div class="seg-pill"></div>
+                  </div>
+                </div>
+
+                <!-- S24 BAR 2: WI-FI NETWORK -->
+                <div style="margin-bottom: 14px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                    <span class="font-silkscreen" style="color: #94a3b8;">2. WI-FI NETWORK</span>
+                    <span class="font-vt323" style="font-size: 17px; color: #fff;" id="s24-wifi-val">
+                      Trav-WiFi-5G <small style="color: var(--neon-cyan); font-size: 11px;">(-54 dBm, 5 Bars)</small>
+                    </span>
+                  </div>
+                  <div class="seg-bar-track" style="--bar-color: var(--neon-purple);">
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill filled"></div>
+                    <div class="seg-pill"></div>
+                    <div class="seg-pill"></div>
+                    <div class="seg-pill"></div>
+                  </div>
+                </div>
+
+                <!-- 2x2 TILES -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06);">
+                  <div style="background: rgba(255,255,255,0.02); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);">
+                    <div class="font-silkscreen" style="font-size: 9px; color: #64748b;">WORKLOAD ENGINE</div>
+                    <div class="font-vt323" style="font-size: 17px; color: #fff; margin-top: 2px;">
+                      Termux-API (Daemon)
+                    </div>
+                  </div>
+                  <div style="background: rgba(255,255,255,0.02); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);">
+                    <div class="font-silkscreen" style="font-size: 9px; color: #64748b;">CLUSTER ROLE</div>
+                    <div class="font-vt323" style="font-size: 17px; color: var(--neon-cyan); margin-top: 2px;">
+                      Mobile Node (Direct)
+                    </div>
+                  </div>
+                  <div style="background: rgba(255,255,255,0.02); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);">
+                    <div class="font-silkscreen" style="font-size: 9px; color: #64748b;">TAILSCALE PING</div>
+                    <div class="font-vt323" style="font-size: 17px; color: var(--neon-cyan); margin-top: 2px;" id="s24-ts-ping">
+                      14 ms (Direct)
+                    </div>
+                  </div>
+                  <div style="background: rgba(255,255,255,0.02); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);">
+                    <div class="font-silkscreen" style="font-size: 9px; color: #64748b;">ACCESS CHANNELS</div>
+                    <div class="font-vt323" style="font-size: 17px; color: var(--neon-purple); margin-top: 2px;">
+                      Tailscale SSH (:8022)
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <script>
+    // STARTS COLLAPSED (AS REQUESTED)
+    let isFleetExpanded = false;
+    let currentViewport = 'desktop';
+    let s24IsOnline = false; // Start in standby to demo amber status ball
+    let telemetryPollTimer = null;
+    let queryCount = 0;
+
+    // SINGLE INITIAL QUERY ON PAGE LOAD
+    function checkInitialFleetStatus() {
+      console.log('[Fleet Status] Performing single initial node reachability check on page load...');
+      // Simulates the fast single query:
+      // Dell: online (green), S20 FE: online (green), S24 Ultra: standby (amber)
+      updateNodeStatusBalls();
+      console.log('[Fleet Status] Initial check complete: Dell (online), S20 FE (online), S24 Ultra (standby). Fleet module now dormant.');
+    }
+
+    function updateNodeStatusBalls() {
+      const hDell = document.getElementById('h-ball-dell');
+      const hS20 = document.getElementById('h-ball-s20fe');
+      const hS24 = document.getElementById('h-ball-s24');
+      const dotS24 = document.getElementById('dot-s24-ind');
+
+      if (hDell) hDell.className = `header-ball online ${isFleetExpanded ? 'breathing' : ''}`;
+      if (hS20) hS20.className = `header-ball online ${isFleetExpanded ? 'breathing' : ''}`;
+      if (hS24) {
+        hS24.className = `header-ball ${s24IsOnline ? 'online' : 'standby'} ${isFleetExpanded ? 'breathing' : ''}`;
+        hS24.title = `Galaxy S24 Ultra: ${s24IsOnline ? 'Online' : 'Standby'}`;
+      }
+      if (dotS24) {
+        dotS24.className = `carousel-dot-indicator header-ball ${s24IsOnline ? 'online' : 'standby'}`;
+      }
+    }
+
+    function toggleFleetAccordion() {
+      isFleetExpanded = !isFleetExpanded;
+      const header = document.getElementById('fleet-header');
+      const drawer = document.getElementById('fleet-drawer');
+      const text = document.getElementById('fleet-toggle-text');
+      const cards = document.querySelectorAll('.node-card');
+      const balls = document.querySelectorAll('.header-ball');
+
+      if (isFleetExpanded) {
+        header.classList.add('expanded');
+        drawer.classList.add('open');
+        text.innerHTML = '[ ▲ COLLAPSE ]';
+        text.style.color = 'var(--neon-purple)';
+
+        // ACTIVATE SLOW BREATHING GLOW ON CARDS & BALLS
+        cards.forEach(card => card.classList.add('breathing'));
+        balls.forEach(ball => ball.classList.add('breathing'));
+
+        startTelemetryPolling();
+      } else {
+        header.classList.remove('expanded');
+        drawer.classList.remove('open');
+        text.innerHTML = '[ ▼ EXPAND ]';
+        text.style.color = 'var(--neon-cyan)';
+
+        // DEACTIVATE SLOW BREATHING GLOW
+        cards.forEach(card => card.classList.remove('breathing'));
+        balls.forEach(ball => ball.classList.remove('breathing'));
+
+        stopTelemetryPolling();
+      }
+    }
+
+    function startTelemetryPolling() {
+      queryCount++;
+      console.log(`[Fleet Telemetry] Fleet expanded. Activated slow breathing glow and live telemetry (Cycle #${queryCount}).`);
+
+      if (telemetryPollTimer) clearInterval(telemetryPollTimer);
+      telemetryPollTimer = setInterval(() => {
+        queryCount++;
+        console.log(`[Fleet Telemetry] Streaming update cycle #${queryCount} dispatched.`);
+      }, 10000);
+    }
+
+    function stopTelemetryPolling() {
+      if (telemetryPollTimer) {
+        clearInterval(telemetryPollTimer);
+        telemetryPollTimer = null;
+      }
+      console.log('[Fleet Telemetry] Fleet collapsed. Polling paused to preserve mobile battery.');
+    }
+
+    function setViewport(mode) {
+      currentViewport = mode;
+      const container = document.getElementById('viewport-container');
+      
+      // Update buttons
+      document.getElementById('btn-mobile').classList.toggle('active', mode === 'mobile');
+      document.getElementById('btn-tablet').classList.toggle('active', mode === 'tablet');
+      document.getElementById('btn-desktop').classList.toggle('active', mode === 'desktop');
+
+      // Update container class
+      container.className = `viewport-${mode}`;
+
+      // Reset carousel scroll position when switching modes
+      const viewport = document.getElementById('fleet-viewport');
+      if (viewport) viewport.scrollTo({ left: 0, behavior: 'smooth' });
+      updateActiveDot(0);
+    }
+
+    function scrollToNode(index) {
+      const viewport = document.getElementById('fleet-viewport');
+      const cards = document.querySelectorAll('.node-card');
+      if (cards[index]) {
+        cards[index].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        updateActiveDot(index);
+      }
+    }
+
+    function updateActiveDot(index) {
+      for (let i = 0; i < 3; i++) {
+        const dot = document.getElementById(`dot-${i}`);
+        if (dot) dot.classList.toggle('active', i === index);
+      }
+    }
+
+    // Track scroll position on mobile carousel to update active pill
+    const carouselViewport = document.getElementById('fleet-viewport');
+    carouselViewport.addEventListener('scroll', () => {
+      const width = carouselViewport.offsetWidth;
+      if (width > 0) {
+        const scrollIndex = Math.round(carouselViewport.scrollLeft / width);
+        updateActiveDot(Math.min(2, Math.max(0, scrollIndex)));
+      }
+    });
+
+    function toggleS24State() {
+      s24IsOnline = !s24IsOnline;
+      const btn = document.getElementById('btn-s24-toggle');
+      const badge = document.getElementById('s24-status-badge');
+      const ping = document.getElementById('s24-ts-ping');
+      const bat = document.getElementById('s24-bat-val');
+      const wifi = document.getElementById('s24-wifi-val');
+
+      if (s24IsOnline) {
+        btn.innerHTML = '🟢 Online';
+        btn.style.color = 'var(--neon-green)';
+        badge.className = 'status-badge status-online font-silkscreen';
+        badge.innerHTML = '<span class="pulse-dot"></span> ONLINE';
+        ping.innerHTML = '14 ms (Direct)';
+        ping.style.color = 'var(--neon-cyan)';
+        bat.innerHTML = '65% (Discharging) <small style="color: #64748b; font-size: 11px;">(Health: Good)</small>';
+        wifi.innerHTML = 'Trav-WiFi-5G <small style="color: var(--neon-cyan); font-size: 11px;">(-54 dBm, 5 Bars)</small>';
+      } else {
+        btn.innerHTML = '🟡 Standby (Sleep)';
+        btn.style.color = 'var(--neon-amber)';
+        badge.className = 'status-badge status-standby font-silkscreen';
+        badge.innerHTML = '<span class="pulse-dot"></span> STANDBY';
+        ping.innerHTML = 'Standby (Cached)';
+        ping.style.color = '#94a3b8';
+        bat.innerHTML = '65% <small style="color: var(--neon-amber); font-size: 11px;">(Last Known)</small>';
+        wifi.innerHTML = 'Trav-WiFi-5G <small style="color: #64748b; font-size: 11px;">(3m ago)</small>';
+      }
+
+      updateNodeStatusBalls();
+    }
+
+    // Run single status check on page load
+    window.addEventListener('DOMContentLoaded', checkInitialFleetStatus);
+    checkInitialFleetStatus();
+  </script>
+</body>
+</html>
