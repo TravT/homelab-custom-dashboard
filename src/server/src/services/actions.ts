@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { Client as SSHClient } from 'ssh2';
 import { config } from '../config.js';
+import { sendHttpJson } from '../utils/http.js';
 
 export interface ActionResult {
   success: boolean;
@@ -284,29 +285,28 @@ export async function toggleS20Screen(state: 'toggle' | 'on' | 'off' = 'toggle')
 
   const adbBase = config.scrcpyUrl;
   const headers = {
-    'Content-Type': 'application/json',
     Host: config.scrcpyHost,
   };
 
   try {
     // 1. Ensure connected
-    await fetch(`${adbBase}/api/adb/connect`, {
+    await sendHttpJson(`${adbBase}/api/adb/connect`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ ip: config.s20Host, port: '5555' }),
+      body: { ip: config.s20Host, port: '5555' },
     }).catch(() => {});
 
     // 2. Dispatch keyevent
-    const res = await fetch(`${adbBase}/api/adb/command`, {
+    const res = await sendHttpJson(`${adbBase}/api/adb/command`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({
+      body: {
         target: `${config.s20Host}:5555`,
         commands: [subcmd],
-      }),
+      },
     });
 
-    if (res.ok) {
+    if (res.status === 200) {
       return {
         success: true,
         actionId: 'phone_s20_screen',
@@ -314,7 +314,7 @@ export async function toggleS20Screen(state: 'toggle' | 'on' | 'off' = 'toggle')
         timestamp,
       };
     }
-    throw new Error(`ADB command responded with status ${res.status}`);
+    throw new Error(`ADB command responded with status ${res.status}: ${res.raw}`);
   } catch (err: any) {
     return {
       success: false,

@@ -3,6 +3,7 @@ import os from 'node:os';
 import fs from 'node:fs';
 import { Client as SSHClient } from 'ssh2';
 import { config } from '../config.js';
+import { sendHttpJson } from '../utils/http.js';
 
 export type NodeStatus = 'online' | 'standby' | 'offline';
 
@@ -132,51 +133,43 @@ async function fetchWithTimeout(url: string, timeoutMs = 2500, headers: Record<s
 async function queryS20ADB(): Promise<typeof lastKnownS20> {
   const adbBase = config.scrcpyUrl;
   const headers = {
-    'Content-Type': 'application/json',
     Host: config.scrcpyHost,
   };
 
-  const sendAdbCommand = async () => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3000);
-    try {
-      const res = await fetch(`${adbBase}/api/adb/command`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          target: `${config.s20Host}:5555`,
-          commands: [
-            'shell dumpsys battery',
-            'shell dumpsys wifi | grep -m 1 mWifiInfo',
-          ],
-        }),
-        signal: controller.signal,
-      });
-      return res;
-    } finally {
-      clearTimeout(timer);
-    }
+  const sendAdbCommand = () => {
+    return sendHttpJson(`${adbBase}/api/adb/command`, {
+      method: 'POST',
+      headers,
+      body: {
+        target: `${config.s20Host}:5555`,
+        commands: [
+          'shell dumpsys battery',
+          'shell dumpsys wifi | grep -m 1 mWifiInfo',
+        ],
+      },
+      timeoutMs: 3000,
+    });
   };
 
   try {
-    let res = await sendAdbCommand();
+    let res = await sendAdbCommand().catch(() => null);
 
     // If ADB device was not connected in ws-scrcpy, trigger connect and retry
-    if (!res.ok) {
+    if (!res || res.status !== 200) {
       try {
-        await fetch(`${adbBase}/api/adb/connect`, {
+        await sendHttpJson(`${adbBase}/api/adb/connect`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ ip: config.s20Host, port: '5555' }),
+          body: { ip: config.s20Host, port: '5555' },
+          timeoutMs: 2000,
         });
         await new Promise((r) => setTimeout(r, 600));
-        res = await sendAdbCommand();
+        res = await sendAdbCommand().catch(() => null);
       } catch {}
     }
 
-    if (res.ok) {
-      const data: any = await res.json();
-      const raw = data?.result || '';
+    if (res && res.status === 200) {
+      const raw = res.data?.result || res.raw || '';
 
       const levelMatch = raw.match(/level:\s*(\d+)/);
       const tempMatch = raw.match(/temperature:\s*(\d+)/);
