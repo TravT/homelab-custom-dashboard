@@ -16,6 +16,8 @@ import { SearchModal } from './components/modals/SearchModal.jsx';
 import { useDropzone } from './hooks/useDropzone.js';
 import { DropzoneModal } from './components/dropzone/DropzoneModal.jsx';
 import { GlobalDropOverlay } from './components/dropzone/GlobalDropOverlay.jsx';
+import { ActionTrigger } from './components/actions/ActionTrigger.jsx';
+import { ActionConsoleDrawer } from './components/actions/ActionConsoleDrawer.jsx';
 
 /**
  * Homelab Custom Dashboard - Modular Command Center
@@ -25,6 +27,7 @@ export default function App() {
   const [showCV, setShowCV] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [showActions, setShowActions] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
 
@@ -120,6 +123,7 @@ export default function App() {
       <CVModal isOpen={showCV} onClose={() => setShowCV(false)} />
       <CalendarModal isOpen={showCalendar} onClose={() => setShowCalendar(false)} rawReleases={rawReleases} />
       <SearchModal isOpen={showSearch} onClose={() => setShowSearch(false)} />
+      <ActionConsoleDrawer isOpen={showActions} onClose={() => setShowActions(false)} />
       
       {/* DROPZONE MODAL & RADAR OVERLAY */}
       <DropzoneModal 
@@ -145,7 +149,11 @@ export default function App() {
         onToggleNav={() => setIsNavOpen(!isNavOpen)} 
         onOpenSearch={() => setShowSearch(true)} 
         onOpenDropzone={() => dropzone.openDropzone('upload')}
+        onOpenActions={() => setShowActions(true)}
       />
+
+      {/* QUICK FLOATING ACTION TRIGGER */}
+      <ActionTrigger onOpen={() => setShowActions(true)} />
 
       {/* MAIN CONTENT AREA */}
       <main id="main-scroll" className="flex-1 flex flex-col h-screen overflow-y-auto w-full md:pl-20 no-scrollbar scroll-smooth relative z-10">

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Server, Home, Play, Search, Folder, GripHorizontal, UploadCloud } from 'lucide-react';
+import { Server, Home, Play, Search, Folder, GripHorizontal, UploadCloud, Zap } from 'lucide-react';
 
 function SidebarIcon({ icon, active, onClick, title }) {
   return (
@@ -33,7 +33,7 @@ function MobileNavIcon({ icon, active, onClick, title }) {
   );
 }
 
-export function Sidebar({ isNavOpen, onToggleNav, onOpenSearch, onOpenDropzone }) {
+export function Sidebar({ isNavOpen, onToggleNav, onOpenSearch, onOpenDropzone, onOpenActions }) {
   const scrollToTop = () => {
     const el = document.getElementById('main-scroll');
     if (el) el.scrollTo({ top: 0, behavior: 'smooth' });
@@ -48,6 +48,11 @@ export function Sidebar({ isNavOpen, onToggleNav, onOpenSearch, onOpenDropzone }
           active 
           title="Command Center (Top)"
           onClick={scrollToTop}
+        />
+        <SidebarIcon 
+          icon={<Zap size={20} />} 
+          title="Cluster & Device Actions (Cmd+Shift+A)"
+          onClick={onOpenActions}
         />
         <SidebarIcon 
           icon={<Home size={20} />} 
@@ -91,6 +96,11 @@ export function Sidebar({ isNavOpen, onToggleNav, onOpenSearch, onOpenDropzone }
             active 
             title="Command Center"
             onClick={scrollToTop}
+          />
+          <MobileNavIcon 
+            icon={<Zap size={22} />} 
+            title="Cluster Actions"
+            onClick={onOpenActions}
           />
           <MobileNavIcon 
             icon={<Home size={22} />} 

@@ -7,6 +7,7 @@ import fastifyMultipart from '@fastify/multipart';
 import { config } from './config.js';
 import { apiRoutes } from './routes/api.js';
 import { dropzoneRoutes } from './routes/dropzone.js';
+import { actionRoutes } from './routes/actions.js';
 import { initDropzone, cleanupExpiredDrops } from './services/dropzone.js';
 
 const fastify = Fastify({
@@ -44,6 +45,9 @@ async function main() {
 
   // Register API routes (/api/*)
   await fastify.register(apiRoutes, { prefix: '/api' });
+
+  // Register 1-Click Cluster & Device Actions (/api/actions/*)
+  await fastify.register(actionRoutes, { prefix: '/api/actions' });
 
   // Register Dropzone routes (/api/drop and /d/:id)
   await fastify.register(dropzoneRoutes);
