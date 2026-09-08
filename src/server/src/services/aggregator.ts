@@ -34,6 +34,7 @@ interface CalendarCache {
 
 let telemetryCache: TelemetryCache | null = null;
 let calendarCache: CalendarCache | null = null;
+let lastKnownBattery = { battery_percent: 100, power_plugged: true };
 
 async function fetchWithTimeout(url: string, timeoutMs = 2500): Promise<any> {
   const controller = new AbortController();
@@ -76,10 +77,14 @@ async function getTelemetryData(): Promise<Omit<TelemetryCache, 'expiresAt'>> {
     fetchWithTimeout(`${netdataBase}/data?chart=sensors.temperature_coretemp-isa-0000_temp1_Package_id_0_input&points=1&after=-3`),
     fetchWithTimeout(`${netdataBase}/data?chart=disk_space./&points=1&after=-5`),
     fetchWithTimeout(`${netdataBase}/data?chart=disk.sda&points=1&after=-3`),
-    fetchWithTimeout(`${config.batteryUrl}/stats`),
+    fetchWithTimeout(`${config.batteryUrl}/stats`, 3000),
     fetchWithTimeout(`${config.nomadUrl}/v1/jobs`),
     fetchWithTimeout(`${config.traefikUrl}/api/http/services`),
   ]);
+
+  if (batteryRes.status === 'fulfilled' && batteryRes.value?.battery_percent !== undefined) {
+    lastKnownBattery = batteryRes.value;
+  }
 
   const freshTelemetry: Omit<TelemetryCache, 'expiresAt'> = {
     netdata: {
@@ -91,7 +96,7 @@ async function getTelemetryData(): Promise<Omit<TelemetryCache, 'expiresAt'>> {
       diskSpace: diskSpaceRes.status === 'fulfilled' ? diskSpaceRes.value : null,
       diskIo: diskIoRes.status === 'fulfilled' ? diskIoRes.value : null,
     },
-    battery: batteryRes.status === 'fulfilled' ? batteryRes.value : null,
+    battery: lastKnownBattery,
     nomad: nomadRes.status === 'fulfilled' ? nomadRes.value : null,
     traefik: traefikRes.status === 'fulfilled' ? traefikRes.value : null,
   };
