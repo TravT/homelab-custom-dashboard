@@ -8,6 +8,8 @@ import {
   speakPhoneTTS,
   pingS24Phone,
   toggleS20Screen,
+  toggleQbittorrentTurtleMode,
+  pausePiholeBlocking,
 } from '../services/actions.js';
 
 export const actionRoutes: FastifyPluginAsync = async (fastify) => {
@@ -52,6 +54,11 @@ export const actionRoutes: FastifyPluginAsync = async (fastify) => {
     reply.status(result.success ? 200 : 500).send(result);
   });
 
+  fastify.post('/media/turtle-mode', async (_request, reply) => {
+    const result = await toggleQbittorrentTurtleMode();
+    reply.status(result.success ? 200 : 500).send(result);
+  });
+
   // Android Mobile Routes
   fastify.post<{ Body: { text: string } }>('/phone/clipboard', async (request, reply) => {
     const { text } = request.body || {};
@@ -59,9 +66,9 @@ export const actionRoutes: FastifyPluginAsync = async (fastify) => {
     reply.status(result.success ? 200 : 400).send(result);
   });
 
-  fastify.post<{ Body: { message: string } }>('/phone/tts', async (request, reply) => {
-    const { message } = request.body || {};
-    const result = await speakPhoneTTS(message);
+  fastify.post<{ Body: { message: string; target?: 's24' | 's20' | 'both' } }>('/phone/tts', async (request, reply) => {
+    const { message, target } = request.body || {};
+    const result = await speakPhoneTTS(message, target);
     reply.status(result.success ? 200 : 400).send(result);
   });
 
@@ -70,9 +77,16 @@ export const actionRoutes: FastifyPluginAsync = async (fastify) => {
     reply.status(result.success ? 200 : 500).send(result);
   });
 
-  fastify.post<{ Body: { state?: 'toggle' | 'on' | 'off' } }>('/phone/screen', async (request, reply) => {
+  fastify.post<{ Body: { state?: 'toggle' | 'on' | 'off' | 'unlock' } }>('/phone/screen', async (request, reply) => {
     const { state } = request.body || {};
     const result = await toggleS20Screen(state);
+    reply.status(result.success ? 200 : 500).send(result);
+  });
+
+  // Network & Ingress Routes
+  fastify.post<{ Body: { duration?: number } }>('/network/pihole/pause', async (request, reply) => {
+    const { duration } = request.body || {};
+    const result = await pausePiholeBlocking(duration !== undefined ? Number(duration) : 300);
     reply.status(result.success ? 200 : 500).send(result);
   });
 };

@@ -12,7 +12,7 @@ export interface ActionResult {
 }
 
 
-function getS24PrivateKey(): string | Buffer | null {
+function getClusterPrivateKey(): string | Buffer | null {
   if (config.sshPrivateKey) {
     return config.sshPrivateKey;
   }
@@ -26,10 +26,14 @@ function getS24PrivateKey(): string | Buffer | null {
   return null;
 }
 
-function executeS24SSH(cmd: string, timeoutMs = 5000): Promise<{ stdout: string; stderr: string }> {
-  const privateKey = getS24PrivateKey();
+function executeSSH(
+  target: { host: string; port: number; user: string; name: string },
+  cmd: string,
+  timeoutMs = 7000
+): Promise<{ stdout: string; stderr: string }> {
+  const privateKey = getClusterPrivateKey();
   if (!privateKey) {
-    return Promise.reject(new Error('No SSH private key configured for S24 Ultra'));
+    return Promise.reject(new Error(`No SSH private key configured for ${target.name}`));
   }
 
   return new Promise((resolve, reject) => {
@@ -40,7 +44,7 @@ function executeS24SSH(cmd: string, timeoutMs = 5000): Promise<{ stdout: string;
       if (!isDone) {
         isDone = true;
         try { conn.end(); } catch {}
-        reject(new Error(`S24 Ultra SSH command timed out after ${timeoutMs}ms (device asleep or unreachable)`));
+        reject(new Error(`${target.name} SSH command timed out after ${timeoutMs}ms (device unreachable)`));
       }
     }, timeoutMs);
 
@@ -78,13 +82,29 @@ function executeS24SSH(cmd: string, timeoutMs = 5000): Promise<{ stdout: string;
     });
 
     conn.connect({
-      host: config.s24Host,
-      port: config.s24SshPort,
-      username: config.s24SshUser,
+      host: target.host,
+      port: target.port,
+      username: target.user,
       privateKey,
-      readyTimeout: 4000,
+      readyTimeout: 5000,
     });
   });
+}
+
+function executeS24SSH(cmd: string, timeoutMs = 6000) {
+  return executeSSH(
+    { host: config.s24Host, port: config.s24SshPort, user: config.s24SshUser, name: 'Galaxy S24 Ultra' },
+    cmd,
+    timeoutMs
+  );
+}
+
+function executeS20SSH(cmd: string, timeoutMs = 8000) {
+  return executeSSH(
+    { host: config.s20Host, port: config.s20SshPort, user: config.s20SshUser, name: 'Galaxy S20 FE' },
+    cmd,
+    timeoutMs
+  );
 }
 
 // ==========================================
@@ -214,7 +234,10 @@ export async function pushS24Clipboard(text: string): Promise<ActionResult> {
   }
 }
 
-export async function speakPhoneTTS(message: string): Promise<ActionResult> {
+export async function speakPhoneTTS(
+  message: string,
+  target: 's24' | 's20' | 'both' = 's24'
+): Promise<ActionResult> {
   const timestamp = new Date().toISOString();
   if (!message || typeof message !== 'string') {
     return {
@@ -225,21 +248,65 @@ export async function speakPhoneTTS(message: string): Promise<ActionResult> {
     };
   }
 
-  try {
-    const trimmed = message.slice(0, 300);
-    const b64 = Buffer.from(trimmed, 'utf8').toString('base64');
+  const trimmed = message.slice(0, 300);
+  const b64 = Buffer.from(trimmed, 'utf8').toString('base64');
+
+  const speakS24 = async () => {
     await executeS24SSH(`echo "${b64}" | base64 -d | /data/data/com.termux/files/usr/bin/termux-tts-speak`);
-    return {
-      success: true,
-      actionId: 'phone_tts',
-      message: `Announcement broadcasted to Galaxy S24 Ultra speaker.`,
-      timestamp,
-    };
+    return 'Galaxy S24 Ultra';
+  };
+
+  const speakS20 = async () => {
+    await executeS20SSH(
+      `echo "${b64}" | base64 -d | espeak-ng -w /tmp/speech.wav && adb -s 127.0.0.1:5555 push /tmp/speech.wav /sdcard/speech.wav && adb -s 127.0.0.1:5555 shell am start -a android.intent.action.VIEW -d "file:///sdcard/speech.wav" -t "audio/wav"`
+    );
+    return 'Galaxy S20 FE';
+  };
+
+  try {
+    if (target === 'both') {
+      const results = await Promise.allSettled([speakS24(), speakS20()]);
+      const fulfilled = results.filter((r) => r.status === 'fulfilled');
+      if (fulfilled.length === 2) {
+        return {
+          success: true,
+          actionId: 'phone_tts',
+          message: 'Broadcasted voice alert to both S24 Ultra and S20 FE speakers.',
+          timestamp,
+        };
+      } else if (fulfilled.length === 1) {
+        const failedDev = results[0].status === 'rejected' ? 'S24 Ultra' : 'S20 FE';
+        return {
+          success: true,
+          actionId: 'phone_tts',
+          message: `Partial voice alert: spoke on 1 device (${failedDev} unreachable).`,
+          timestamp,
+        };
+      } else {
+        throw new Error('Both S24 Ultra and S20 FE failed to announce speech.');
+      }
+    } else if (target === 's20') {
+      await speakS20();
+      return {
+        success: true,
+        actionId: 'phone_tts',
+        message: 'Voice alert announced over Galaxy S20 FE speaker.',
+        timestamp,
+      };
+    } else {
+      await speakS24();
+      return {
+        success: true,
+        actionId: 'phone_tts',
+        message: 'Voice alert announced over Galaxy S24 Ultra speaker.',
+        timestamp,
+      };
+    }
   } catch (err: any) {
     return {
       success: false,
       actionId: 'phone_tts',
-      message: `TTS dispatch failed: ${err?.message || String(err)}`,
+      message: `TTS dispatch failed (${target}): ${err?.message || String(err)}`,
       timestamp,
     };
   }
@@ -267,14 +334,21 @@ export async function pingS24Phone(): Promise<ActionResult> {
   }
 }
 
-export async function toggleS20Screen(state: 'toggle' | 'on' | 'off' = 'toggle'): Promise<ActionResult> {
+export async function toggleS20Screen(state: 'toggle' | 'on' | 'off' | 'unlock' = 'toggle'): Promise<ActionResult> {
   const timestamp = new Date().toISOString();
-  const subcmd =
-    state === 'on'
-      ? 'shell input keyevent KEYCODE_WAKEUP'
+  const commands =
+    state === 'unlock'
+      ? [
+          'shell input keyevent KEYCODE_WAKEUP',
+          'shell wm dismiss-keyguard',
+          'shell input keyevent 82',
+          'shell input swipe 540 1800 540 600 150',
+        ]
+      : state === 'on'
+      ? ['shell input keyevent KEYCODE_WAKEUP']
       : state === 'off'
-      ? 'shell input keyevent KEYCODE_SLEEP'
-      : 'shell input keyevent 26';
+      ? ['shell input keyevent KEYCODE_SLEEP']
+      : ['shell input keyevent 26'];
 
   const adbBase = config.scrcpyUrl;
   const headers = {
@@ -289,21 +363,29 @@ export async function toggleS20Screen(state: 'toggle' | 'on' | 'off' = 'toggle')
       body: { ip: config.s20Host, port: '5555' },
     }).catch(() => {});
 
-    // 2. Dispatch keyevent
+    // 2. Dispatch commands
     const res = await sendHttpJson(`${adbBase}/api/adb/command`, {
       method: 'POST',
       headers,
       body: {
         target: `${config.s20Host}:5555`,
-        commands: [subcmd],
+        commands,
       },
     });
 
     if (res.status === 200) {
+      const label =
+        state === 'unlock'
+          ? 'unlocked (display awake & keyguard dismissed)'
+          : state === 'on'
+          ? 'display turned on'
+          : state === 'off'
+          ? 'display sent to sleep'
+          : 'display toggled';
       return {
         success: true,
         actionId: 'phone_s20_screen',
-        message: `S20 FE display command '${state}' executed.`,
+        message: `Galaxy S20 FE ${label}.`,
         timestamp,
       };
     }
@@ -312,7 +394,113 @@ export async function toggleS20Screen(state: 'toggle' | 'on' | 'off' = 'toggle')
     return {
       success: false,
       actionId: 'phone_s20_screen',
-      message: `Failed to toggle S20 screen: ${err?.message || String(err)}`,
+      message: `Failed to execute S20 screen command (${state}): ${err?.message || String(err)}`,
+      timestamp,
+    };
+  }
+}
+
+// ==========================================
+// 3. Network & Downloader Fleet Actions
+// ==========================================
+
+export async function toggleQbittorrentTurtleMode(): Promise<ActionResult> {
+  const timestamp = new Date().toISOString();
+  try {
+    const loginParams = new URLSearchParams();
+    loginParams.append('username', config.qbittorrentUser);
+    loginParams.append('password', config.qbittorrentPassword);
+
+    const loginRes = await fetch(`${config.qbittorrentUrl}/api/v2/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: loginParams.toString(),
+    });
+
+    const setCookie = loginRes.headers.get('set-cookie') || '';
+    const sidMatch = setCookie.match(/SID=([^;]+)/i);
+    const cookieHeader = sidMatch ? sidMatch[0] : '';
+
+    await fetch(`${config.qbittorrentUrl}/api/v2/transfer/toggleSpeedLimitsMode`, {
+      method: 'POST',
+      headers: { Cookie: cookieHeader },
+    });
+
+    const modeRes = await fetch(`${config.qbittorrentUrl}/api/v2/transfer/speedLimitsMode`, {
+      headers: { Cookie: cookieHeader },
+    });
+    const mode = await modeRes.text();
+    const isTurtle = mode.trim() === '1';
+
+    return {
+      success: true,
+      actionId: 'media_qbittorrent_turtle',
+      message: isTurtle
+        ? 'qBittorrent Turtle Mode ENABLED (throttling active).'
+        : 'qBittorrent Turtle Mode DISABLED (unlimited bandwidth).',
+      timestamp,
+      details: { turtleActive: isTurtle },
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      actionId: 'media_qbittorrent_turtle',
+      message: `Failed to toggle qBittorrent speed mode: ${err?.message || String(err)}`,
+      timestamp,
+    };
+  }
+}
+
+export async function pausePiholeBlocking(durationSeconds = 300): Promise<ActionResult> {
+  const timestamp = new Date().toISOString();
+  try {
+    const authRes = await fetch(`${config.piholeUrl}/api/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: config.piholePassword }),
+    });
+    const authData: any = await authRes.json();
+    const sid = authData?.session?.sid;
+    if (!sid) {
+      throw new Error('Failed to obtain Pi-hole v6 session SID');
+    }
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      sid,
+    };
+
+    if (durationSeconds <= 0) {
+      await fetch(`${config.piholeUrl}/api/dns/blocking`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ blocking: true }),
+      });
+      return {
+        success: true,
+        actionId: 'network_pihole_blocking',
+        message: 'Pi-hole DNS ad-blocking re-enabled immediately.',
+        timestamp,
+      };
+    } else {
+      await fetch(`${config.piholeUrl}/api/dns/blocking`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ blocking: false, timer: durationSeconds }),
+      });
+      const mins = Math.round(durationSeconds / 60);
+      return {
+        success: true,
+        actionId: 'network_pihole_blocking',
+        message: `Pi-hole DNS ad-blocking paused for ${mins} minute${mins !== 1 ? 's' : ''}.`,
+        timestamp,
+      };
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      actionId: 'network_pihole_blocking',
+      message: `Failed to update Pi-hole blocking: ${err?.message || String(err)}`,
       timestamp,
     };
   }

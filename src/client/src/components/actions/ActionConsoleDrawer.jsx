@@ -11,6 +11,7 @@ import {
   Power,
   Lock,
   Unlock,
+  ShieldAlert,
 } from 'lucide-react';
 import { ActionCard } from './ActionCard.jsx';
 import { ActionLogFeed } from './ActionLogFeed.jsx';
@@ -22,7 +23,7 @@ import {
 } from '../../services/actionsApi.js';
 
 export function ActionConsoleDrawer({ isOpen, onClose }) {
-  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'media' | 'android'
+  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'mobile' | 'media' | 'network'
   const [logs, setLogs] = useState([]);
   const [isAuthorized, setIsAuthorized] = useState(() => Boolean(getStoredActionPin()));
   const [pinInput, setPinInput] = useState('');
@@ -110,9 +111,10 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
     return res;
   };
 
-  const handleSpeakTTS = async (message) => {
-    addLog(`▶ Broadcasting TTS message to S24 Ultra speaker...`, 'info');
-    const res = await dispatchClusterAction('/phone/tts', { message });
+  const handleSpeakTTS = async (message, target = 's24') => {
+    const targetLabel = target === 'both' ? 'S24 Ultra & S20 FE' : target === 's20' ? 'S20 FE' : 'S24 Ultra';
+    addLog(`▶ Broadcasting TTS announcement to ${targetLabel}...`, 'info');
+    const res = await dispatchClusterAction('/phone/tts', { message, target });
     if (res.needsPin) setIsAuthorized(false);
     addLog(res.message, res.success ? 'success' : 'error');
     return res;
@@ -126,9 +128,35 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
     return res;
   };
 
-  const handleToggleS20Screen = async () => {
-    addLog('▶ Toggling Galaxy S20 FE display power via root ADB...', 'info');
-    const res = await dispatchClusterAction('/phone/screen', { state: 'toggle' });
+  const handleUnlockS20Screen = async () => {
+    addLog('▶ Waking display & dismissing keyguard on S20 FE via root ADB...', 'info');
+    const res = await dispatchClusterAction('/phone/screen', { state: 'unlock' });
+    if (res.needsPin) setIsAuthorized(false);
+    addLog(res.message, res.success ? 'success' : 'error');
+    return res;
+  };
+
+  const handleToggleS20Screen = async (state = 'toggle') => {
+    addLog(`▶ Dispatching S20 FE screen power command (${state})...`, 'info');
+    const res = await dispatchClusterAction('/phone/screen', { state });
+    if (res.needsPin) setIsAuthorized(false);
+    addLog(res.message, res.success ? 'success' : 'error');
+    return res;
+  };
+
+  const handleToggleTurtleMode = async () => {
+    addLog('▶ Toggling qBittorrent Turtle Mode (speed limits)...', 'info');
+    const res = await dispatchClusterAction('/media/turtle-mode');
+    if (res.needsPin) setIsAuthorized(false);
+    addLog(res.message, res.success ? 'success' : 'error');
+    return res;
+  };
+
+  const handlePausePihole = async (durationStr = '300') => {
+    const duration = parseInt(durationStr, 10);
+    const actionLabel = duration > 0 ? `pausing for ${Math.round(duration / 60)}m` : 're-enabling';
+    addLog(`▶ Updating Pi-hole ad-blocking (${actionLabel})...`, 'info');
+    const res = await dispatchClusterAction('/network/pihole/pause', { duration });
     if (res.needsPin) setIsAuthorized(false);
     addLog(res.message, res.success ? 'success' : 'error');
     return res;
@@ -233,8 +261,9 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
             <div className="shrink-0 flex items-center px-4 sm:px-6 py-2 gap-2 border-b border-white/10 bg-black/30 overflow-x-auto no-scrollbar">
               {[
                 { id: 'all', label: 'All Actions' },
+                { id: 'mobile', label: 'Mobile Fleet' },
                 { id: 'media', label: 'Media Suite' },
-                { id: 'android', label: 'Mobile Fleet' },
+                { id: 'network', label: 'Network & DNS' },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -252,9 +281,71 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
 
             {/* Action Cards Container */}
             <div className="flex-1 min-h-0 p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-              {/* 1. Media Suite */}
-              {(activeTab === 'all' || activeTab === 'media') && (
+              {/* 1. Android Mobile Fleet */}
+              {(activeTab === 'all' || activeTab === 'mobile') && (
                 <div className="space-y-3">
+                  <div className="font-vt323 text-xl text-gray-400 tracking-wider uppercase flex items-center gap-2">
+                    <span className="text-neon-purple opacity-50">//</span> MOBILE FLEET (S24 ULTRA & S20 FE)
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <ActionCard
+                      title="Unlock S20 FE Screen"
+                      description="Wakes display, dismisses Android keyguard, and executes swipe-up via root ADB."
+                      category="android"
+                      icon={Unlock}
+                      onExecute={handleUnlockS20Screen}
+                    />
+                    <ActionCard
+                      title="Toggle S20 Display"
+                      description="Powers display on, off (sleep), or toggles state to protect AMOLED panel."
+                      category="android"
+                      icon={Power}
+                      options={[
+                        { id: 'toggle', label: 'Toggle' },
+                        { id: 'off', label: 'Sleep' },
+                        { id: 'on', label: 'Wake' },
+                      ]}
+                      defaultOption="toggle"
+                      onExecute={handleToggleS20Screen}
+                    />
+                    <ActionCard
+                      title="Speak Voice Alert"
+                      description="Broadcasts spoken announcement over chosen Android hardware speakers."
+                      category="android"
+                      icon={Volume2}
+                      hasInput={true}
+                      inputPlaceholder="Type announcement message..."
+                      options={[
+                        { id: 's24', label: 'S24 Ultra' },
+                        { id: 's20', label: 'S20 FE' },
+                        { id: 'both', label: 'Both' },
+                      ]}
+                      defaultOption="s24"
+                      onExecute={handleSpeakTTS}
+                    />
+                    <ActionCard
+                      title="Push to Clipboard"
+                      description="Sends text directly into Galaxy S24 Ultra clipboard over Tailscale SSH."
+                      category="android"
+                      icon={ClipboardCopy}
+                      hasInput={true}
+                      inputPlaceholder="Type text to copy to phone..."
+                      onExecute={handleSendClipboard}
+                    />
+                    <ActionCard
+                      title="Ping My Phone"
+                      description="Plays an audible tone and vibration pulse on S24 Ultra to locate device."
+                      category="android"
+                      icon={Smartphone}
+                      onExecute={handlePingPhone}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 2. Media Suite */}
+              {(activeTab === 'all' || activeTab === 'media') && (
+                <div className="space-y-3 pt-2">
                   <div className="font-vt323 text-xl text-gray-400 tracking-wider uppercase flex items-center gap-2">
                     <span className="text-neon-green opacity-50">//</span> MEDIA AUTOMATION
                   </div>
@@ -280,48 +371,36 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
                       icon={Trash2}
                       onExecute={handleMaintainerrClean}
                     />
+                    <ActionCard
+                      title="Torrent Turtle Mode"
+                      description="Toggles alternative speed limits in qBittorrent to prioritize bandwidth during calls."
+                      category="media"
+                      icon={Zap}
+                      onExecute={handleToggleTurtleMode}
+                    />
                   </div>
                 </div>
               )}
 
-              {/* 2. Android Mobile Fleet */}
-              {(activeTab === 'all' || activeTab === 'android') && (
+              {/* 3. Network & DNS */}
+              {(activeTab === 'all' || activeTab === 'network') && (
                 <div className="space-y-3 pt-2">
                   <div className="font-vt323 text-xl text-gray-400 tracking-wider uppercase flex items-center gap-2">
-                    <span className="text-neon-purple opacity-50">//</span> MOBILE FLEET (S24 ULTRA & S20 FE)
+                    <span className="text-neon-cyan opacity-50">//</span> NETWORK & DNS GOVERNANCE
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <ActionCard
-                      title="Push to Clipboard"
-                      description="Sends text directly into Galaxy S24 Ultra clipboard over Tailscale SSH."
-                      category="android"
-                      icon={ClipboardCopy}
-                      hasInput={true}
-                      inputPlaceholder="Type text to copy to phone..."
-                      onExecute={handleSendClipboard}
-                    />
-                    <ActionCard
-                      title="Speak Voice Alert"
-                      description="Broadcasts text-to-speech announcement over S24 Ultra speaker."
-                      category="android"
-                      icon={Volume2}
-                      hasInput={true}
-                      inputPlaceholder="Type message to speak..."
-                      onExecute={handleSpeakTTS}
-                    />
-                    <ActionCard
-                      title="Ping My Phone"
-                      description="Plays an audible tone and vibration pulse on S24 Ultra to locate device."
-                      category="android"
-                      icon={Smartphone}
-                      onExecute={handlePingPhone}
-                    />
-                    <ActionCard
-                      title="Toggle S20 FE Screen"
-                      description="Toggles physical display on dedicated edge node using root ADB keyevent."
-                      category="android"
-                      icon={Power}
-                      onExecute={handleToggleS20Screen}
+                      title="Pause Ad-Blocking"
+                      description="Temporarily disables Pi-hole DNS ad filtering to allow shopping or affiliate links."
+                      category="network"
+                      icon={ShieldAlert}
+                      options={[
+                        { id: '300', label: '5 Min' },
+                        { id: '900', label: '15 Min' },
+                        { id: '0', label: 'Resume Now' },
+                      ]}
+                      defaultOption="300"
+                      onExecute={handlePausePihole}
                     />
                   </div>
                 </div>

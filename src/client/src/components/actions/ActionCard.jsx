@@ -4,15 +4,18 @@ import { Loader2, Check, AlertCircle, Play } from 'lucide-react';
 export function ActionCard({
   title,
   description,
-  category = 'media', // 'media' | 'android'
+  category = 'media', // 'media' | 'android' | 'network'
   icon: Icon,
   onExecute,
   hasInput = false,
   inputPlaceholder = 'Type payload...',
+  options = null,
+  defaultOption = null,
 }) {
   const [status, setStatus] = useState('idle'); // 'idle' | 'loading' | 'success' | 'error'
   const [errorMessage, setErrorMessage] = useState('');
   const [inputValue, setInputValue] = useState('');
+  const [selectedOption, setSelectedOption] = useState(() => defaultOption || (options ? options[0]?.id : null));
 
   // Category Cyber Accent Tokens
   const theme =
@@ -23,6 +26,14 @@ export function ActionCard({
           badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
           btn: 'border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/20 hover:border-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.2)] bg-black/40',
           text: 'text-emerald-400',
+        }
+      : category === 'network'
+      ? {
+          border: 'border-cyan-500/25 hover:border-cyan-400/50',
+          glow: 'group-hover:shadow-[0_0_20px_rgba(6,182,212,0.15)]',
+          badge: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
+          btn: 'border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/20 hover:border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.2)] bg-black/40',
+          text: 'text-cyan-400',
         }
       : {
           border: 'border-amber-500/25 hover:border-amber-400/50',
@@ -37,8 +48,16 @@ export function ActionCard({
     setErrorMessage('');
 
     try {
-      const payload = hasInput ? inputValue : null;
-      const res = await onExecute(payload);
+      let res;
+      if (hasInput && options) {
+        res = await onExecute(inputValue, selectedOption);
+      } else if (hasInput) {
+        res = await onExecute(inputValue);
+      } else if (options) {
+        res = await onExecute(selectedOption);
+      } else {
+        res = await onExecute();
+      }
 
       if (res?.success) {
         setStatus('success');
@@ -94,7 +113,26 @@ export function ActionCard({
           )}
         </div>
 
-        <p className="font-mono text-xs text-gray-400 mb-3 leading-relaxed">{description}</p>
+        {/* Optional Target / Mode Selector Pills */}
+        {options && options.length > 0 && (
+          <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+            {options.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setSelectedOption(opt.id)}
+                disabled={status === 'loading'}
+                className={`px-2 py-1 rounded font-silkscreen text-[9px] uppercase tracking-wider transition-all cursor-pointer ${
+                  selectedOption === opt.id
+                    ? 'bg-neon-cyan/25 text-neon-cyan border border-neon-cyan/60 shadow-[0_0_8px_rgba(56,189,248,0.3)]'
+                    : 'bg-black/40 text-gray-400 hover:text-gray-200 border border-white/10 hover:bg-white/5'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Dynamic Text Input (e.g. for Clipboard or TTS) */}
         {hasInput && (
