@@ -732,7 +732,7 @@ export async function purgeStalledTorrents(): Promise<ActionResult> {
       headers: { Cookie: cookie },
     });
     if (!res.ok) throw new Error(`qBittorrent returned HTTP ${res.status}`);
-    const torrents: any[] = await res.json();
+    const torrents = (await res.json()) as any[];
     const dead = Array.isArray(torrents)
       ? torrents.filter((t) => (t.num_seeds === 0 || t.seeds === 0) && t.progress < 0.1)
       : [];
@@ -886,7 +886,7 @@ export async function auditAndSyncProwlarr(): Promise<ActionResult> {
     const indexersRes = await fetch(`${config.prowlarrUrl}/api/v1/indexer`, {
       headers: { 'X-Api-Key': config.prowlarrApiKey },
     });
-    const indexers: any[] = await indexersRes.json();
+    const indexers = (await indexersRes.json()) as any[];
     const total = Array.isArray(indexers) ? indexers.length : 0;
     const enabled = Array.isArray(indexers) ? indexers.filter((i) => i.enable).length : 0;
 
