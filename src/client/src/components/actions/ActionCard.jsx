@@ -67,7 +67,7 @@ export function ActionCard({
               {Icon && <Icon size={18} className="pixel-icon" />}
             </div>
             <div>
-              <h4 className="font-silkscreen text-xs text-white uppercase tracking-wider">{title}</h4>
+              <h4 className="font-vt323 text-xl sm:text-2xl text-white uppercase tracking-wide leading-tight">{title}</h4>
               <span className={`font-silkscreen text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded border ${theme.badge}`}>
                 {category.toUpperCase()}
               </span>

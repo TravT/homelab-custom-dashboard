@@ -147,20 +147,20 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
         </div>
 
         {/* MODAL HEADER */}
-        <div className="flex items-center justify-between px-5 sm:px-7 py-3 sm:py-4 border-b border-white/10 bg-black/40">
-          <div className="flex items-center gap-3">
-            <Zap size={24} className="text-neon-cyan pixel-icon shrink-0 animate-pulse" />
-            <div>
-              <h2 className="font-vt323 text-2xl sm:text-3xl text-white tracking-widest uppercase flex items-center gap-2">
+        <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-2.5 sm:py-3.5 border-b border-white/10 bg-black/40">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 pr-2">
+            <Zap size={22} className="text-neon-cyan pixel-icon shrink-0 animate-pulse" />
+            <div className="min-w-0">
+              <h2 className="font-vt323 text-xl sm:text-2xl text-white tracking-widest uppercase flex items-center gap-2 truncate">
                 <span className="text-neon-cyan opacity-60">//</span> ACTION DISPATCHER
               </h2>
-              <div className="font-silkscreen text-[0.65rem] sm:text-xs text-neon-cyan/80 uppercase tracking-wider">
+              <div className="font-silkscreen text-[0.6rem] sm:text-[0.7rem] text-neon-cyan/80 uppercase tracking-wider truncate">
                 Safe 1-Click Cluster & Mobile Fleet Commands
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {isAuthorized && (
               <button
                 onClick={handleLock}
@@ -175,7 +175,7 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
             <button
               onClick={onClose}
               title="Close (Esc)"
-              className="p-2 rounded-lg text-gray-400 hover:text-neon-cyan hover:bg-white/5 transition-colors cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-lg text-gray-400 hover:text-neon-cyan hover:bg-white/5 transition-colors cursor-pointer"
             >
               <X size={20} className="pixel-icon" />
             </button>
@@ -230,7 +230,7 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
           /* IF AUTHORIZED: FULL ACTION INTERFACE */
           <>
             {/* Category Tabs */}
-            <div className="flex px-5 sm:px-7 pt-3 pb-2 gap-2 border-b border-white/5 bg-black/20 overflow-x-auto no-scrollbar">
+            <div className="shrink-0 flex items-center px-4 sm:px-6 py-2 gap-2 border-b border-white/10 bg-black/30 overflow-x-auto no-scrollbar">
               {[
                 { id: 'all', label: 'All Actions' },
                 { id: 'media', label: 'Media Suite' },
@@ -239,7 +239,7 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-3.5 py-1.5 rounded-lg font-silkscreen text-xs uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
+                  className={`shrink-0 px-3 py-1.5 rounded-lg font-silkscreen text-[11px] sm:text-xs uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/50 shadow-[0_0_12px_rgba(56,189,248,0.3)]'
                       : 'text-gray-400 hover:text-gray-200 border border-white/5 hover:bg-white/5'
@@ -251,7 +251,7 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
             </div>
 
             {/* Action Cards Container */}
-            <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-5 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+            <div className="flex-1 min-h-0 p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
               {/* 1. Media Suite */}
               {(activeTab === 'all' || activeTab === 'media') && (
                 <div className="space-y-3">
@@ -329,7 +329,7 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
             </div>
 
             {/* Terminal Log Feed Footer */}
-            <div className="p-3 sm:p-4 border-t border-white/10 bg-black/50 pb-safe">
+            <div className="shrink-0 p-3 sm:p-4 border-t border-white/10 bg-black/60 pb-safe">
               <ActionLogFeed logs={logs} onClear={clearLogs} />
             </div>
           </>

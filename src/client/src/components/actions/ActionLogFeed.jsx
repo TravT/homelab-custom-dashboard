@@ -32,7 +32,7 @@ export function ActionLogFeed({ logs, onClear }) {
 
       <div
         ref={scrollRef}
-        className="p-3 max-h-36 overflow-y-auto space-y-2 no-scrollbar select-text"
+        className="p-3 max-h-24 sm:max-h-32 overflow-y-auto space-y-2 no-scrollbar select-text"
       >
         {logs.length === 0 ? (
           <div className="font-pixel text-[9px] text-gray-600 tracking-wider">
