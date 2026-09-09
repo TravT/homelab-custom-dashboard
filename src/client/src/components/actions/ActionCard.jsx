@@ -77,7 +77,7 @@ export function ActionCard({
 
   return (
     <div
-      className={`relative p-4 rounded-xl bg-cyber-card/90 backdrop-blur-xl border ${theme.border} ${theme.glow} transition-all duration-300 flex flex-col justify-between group shadow-[0_4px_20px_rgba(0,0,0,0.6)]`}
+      className={`relative p-4 rounded-xl bg-cyber-card border ${theme.border} ${theme.glow} transition-colors duration-200 flex flex-col justify-between group shadow-[0_4px_16px_rgba(0,0,0,0.5)] transform-gpu`}
     >
       <div>
         <div className="flex items-start justify-between gap-3 mb-2">

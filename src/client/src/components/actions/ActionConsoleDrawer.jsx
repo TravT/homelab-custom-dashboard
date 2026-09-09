@@ -270,9 +270,9 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex sm:items-center sm:justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex sm:items-center sm:justify-center p-0 sm:p-4 animate-in fade-in duration-200">
       {/* MOBILE BOTTOM SHEET (<640px) MORPHS TO CENTERED MODAL ON TABLET/PC (>=640px) */}
-      <div className="fixed inset-x-0 bottom-0 sm:static w-full sm:max-w-xl md:max-w-2xl bg-[#09090d]/98 backdrop-blur-2xl border-t-2 border-neon-cyan/50 sm:border sm:border-neon-cyan/40 sm:rounded-2xl shadow-[0_-16px_50px_rgba(0,0,0,0.95)] sm:shadow-[0_0_60px_rgba(56,189,248,0.25)] rounded-t-2xl max-h-[92vh] sm:max-h-[85vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300">
+      <div className="fixed inset-x-0 bottom-0 sm:static w-full sm:max-w-xl md:max-w-2xl bg-[#09090d] border-t-2 border-neon-cyan/50 sm:border sm:border-neon-cyan/40 sm:rounded-2xl shadow-[0_-16px_50px_rgba(0,0,0,0.95)] sm:shadow-[0_0_60px_rgba(56,189,248,0.25)] rounded-t-2xl max-h-[92vh] sm:max-h-[85vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300">
         
         {/* MOBILE TOUCH DRAG HANDLE */}
         <div className="sm:hidden flex items-center justify-center pt-2.5 pb-1 cursor-pointer" onClick={onClose}>
@@ -386,7 +386,7 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
             </div>
 
             {/* Action Cards Container */}
-            <div className="flex-1 min-h-0 p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+            <div className="flex-1 min-h-0 p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent overscroll-contain transform-gpu">
               {/* 1. Android Mobile Fleet */}
               {(activeTab === 'all' || activeTab === 'mobile') && (
                 <div className="space-y-3">

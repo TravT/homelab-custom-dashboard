@@ -11,7 +11,7 @@ export function ActionLogFeed({ logs, onClear }) {
   }, [logs]);
 
   return (
-    <div className="flex flex-col rounded-xl border border-white/10 bg-black/90 backdrop-blur-md overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.8)]">
+    <div className="flex flex-col rounded-xl border border-white/10 bg-black/95 overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.6)]">
       <div className="flex items-center justify-between px-3 py-2 bg-slate-950/80 border-b border-white/10">
         <div className="flex items-center gap-2">
           <Terminal size={15} className="text-neon-cyan pixel-icon" />
