@@ -14,6 +14,14 @@ import {
   ShieldAlert,
   HardDriveDownload,
   RefreshCw,
+  Camera,
+  Moon,
+  Search,
+  Sparkles,
+  Wifi,
+  Activity,
+  Send,
+  ExternalLink,
 } from 'lucide-react';
 import { ActionCard } from './ActionCard.jsx';
 import { ActionLogFeed } from './ActionLogFeed.jsx';
@@ -181,6 +189,76 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
     return res;
   };
 
+  const handleS20Snapshot = async () => {
+    addLog('▶ Capturing S20 FE live display frame to Dropzone...', 'info');
+    const res = await dispatchClusterAction('/phone/s20/snapshot');
+    if (res.needsPin) setIsAuthorized(false);
+    if (res.success && res.details?.downloadUrl) {
+      addLog(`✓ Snapshot saved! Preview: ${res.details.downloadUrl}`, 'success');
+    } else {
+      addLog(res.message, res.success ? 'success' : 'error');
+    }
+    return res;
+  };
+
+  const handleNightStandby = async (target = 's20') => {
+    const targetLabel = target === 'both' ? 'S20 FE & S24 Ultra' : target === 's24' ? 'S24 Ultra' : 'S20 FE';
+    addLog(`▶ Engaging Night Standby for ${targetLabel}...`, 'info');
+    const res = await dispatchClusterAction('/phone/standby', { target });
+    if (res.needsPin) setIsAuthorized(false);
+    addLog(res.message, res.success ? 'success' : 'error');
+    return res;
+  };
+
+  const handleMissingHunt = async (target = 'both') => {
+    const targetLabel = target === 'sonarr' ? 'Sonarr (TV)' : target === 'radarr' ? 'Radarr (Movies)' : 'both Sonarr & Radarr';
+    addLog(`▶ Triggering missing media hunt across indexers for ${targetLabel}...`, 'info');
+    const res = await dispatchClusterAction('/media/missing-hunt', { target });
+    if (res.needsPin) setIsAuthorized(false);
+    addLog(res.message, res.success ? 'success' : 'error');
+    return res;
+  };
+
+  const handlePurgeStalled = async () => {
+    addLog('▶ Checking qBittorrent queue for stalled 0-seed torrents...', 'info');
+    const res = await dispatchClusterAction('/media/purge-stalled');
+    if (res.needsPin) setIsAuthorized(false);
+    addLog(res.message, res.success ? 'success' : 'error');
+    return res;
+  };
+
+  const handleClearTranscodeCache = async () => {
+    addLog('▶ Sweeping Jellyfin transcode segment cache...', 'info');
+    const res = await dispatchClusterAction('/media/clear-cache');
+    if (res.needsPin) setIsAuthorized(false);
+    addLog(res.message, res.success ? 'success' : 'error');
+    return res;
+  };
+
+  const handleProwlarrSync = async () => {
+    addLog('▶ Testing Prowlarr indexer health and syncing to Servarr apps...', 'info');
+    const res = await dispatchClusterAction('/network/prowlarr/audit-sync');
+    if (res.needsPin) setIsAuthorized(false);
+    addLog(res.message, res.success ? 'success' : 'error');
+    return res;
+  };
+
+  const handleTailscaleProbe = async () => {
+    addLog('▶ Probing Tailscale WireGuard mesh latency between nodes...', 'info');
+    const res = await dispatchClusterAction('/network/tailscale/probe');
+    if (res.needsPin) setIsAuthorized(false);
+    addLog(res.message, res.success ? 'success' : 'error');
+    return res;
+  };
+
+  const handleN8nDiagnostic = async () => {
+    addLog('▶ Firing n8n cluster diagnostic webhook to Telegram...', 'info');
+    const res = await dispatchClusterAction('/system/n8n/diagnostic');
+    if (res.needsPin) setIsAuthorized(false);
+    addLog(res.message, res.success ? 'success' : 'error');
+    return res;
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -329,6 +407,25 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
                       onExecute={handleToggleS20Screen}
                     />
                     <ActionCard
+                      title="S20 Screen Snapshot"
+                      description="Captures live display frame of S20 FE edge node and uploads to Dropzone."
+                      category="android"
+                      icon={Camera}
+                      onExecute={handleS20Snapshot}
+                    />
+                    <ActionCard
+                      title="Night Standby"
+                      description="Blanks display to 0% brightness and engages sleep to prevent OLED burn-in."
+                      category="android"
+                      icon={Moon}
+                      options={[
+                        { id: 's20', label: 'S20 FE' },
+                        { id: 'both', label: 'Both Nodes' },
+                      ]}
+                      defaultOption="s20"
+                      onExecute={handleNightStandby}
+                    />
+                    <ActionCard
                       title="Speak Voice Alert"
                       description="Broadcasts spoken announcement over chosen Android hardware speakers."
                       category="android"
@@ -385,6 +482,19 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
                       onExecute={handleBazarrSync}
                     />
                     <ActionCard
+                      title="Hunt Missing Media"
+                      description="Commands Sonarr & Radarr to actively scan indexers for monitored missing media."
+                      category="media"
+                      icon={Search}
+                      options={[
+                        { id: 'both', label: 'Both' },
+                        { id: 'sonarr', label: 'TV (Sonarr)' },
+                        { id: 'radarr', label: 'Movies (Radarr)' },
+                      ]}
+                      defaultOption="both"
+                      onExecute={handleMissingHunt}
+                    />
+                    <ActionCard
                       title="Prune Watched"
                       description="Executes Maintainerr rules to safely delete media watched by user after 7 days."
                       category="media"
@@ -403,6 +513,20 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
                       ]}
                       defaultOption="toggle"
                       onExecute={handleToggleTurtleMode}
+                    />
+                    <ActionCard
+                      title="Purge Stalled Torrents"
+                      description="Scans queue and removes stalled torrents with 0 seeds (preserves files)."
+                      category="media"
+                      icon={Trash2}
+                      onExecute={handlePurgeStalled}
+                    />
+                    <ActionCard
+                      title="Clear Transcode Cache"
+                      description="Purges temporary playback segments in Jellyfin to reclaim NVMe storage."
+                      category="media"
+                      icon={Sparkles}
+                      onExecute={handleClearTranscodeCache}
                     />
                   </div>
                 </div>
@@ -435,6 +559,20 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
                       icon={RefreshCw}
                       onExecute={handleUpdateGravity}
                     />
+                    <ActionCard
+                      title="Prowlarr Indexer Health"
+                      description="Tests all indexer proxies and syncs updated tracker configurations to Sonarr & Radarr."
+                      category="network"
+                      icon={Activity}
+                      onExecute={handleProwlarrSync}
+                    />
+                    <ActionCard
+                      title="Tailscale Latency Probe"
+                      description="Pings S20 FE and S24 Ultra to verify Direct WireGuard P2P latency."
+                      category="network"
+                      icon={Wifi}
+                      onExecute={handleTailscaleProbe}
+                    />
                   </div>
                 </div>
               )}
@@ -452,6 +590,13 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
                       category="media"
                       icon={HardDriveDownload}
                       onExecute={handleTriggerBackup}
+                    />
+                    <ActionCard
+                      title="Trigger n8n Diagnostic"
+                      description="Fires diagnostic workflow compiling cluster telemetry and alerts Telegram."
+                      category="media"
+                      icon={Send}
+                      onExecute={handleN8nDiagnostic}
                     />
                   </div>
                 </div>

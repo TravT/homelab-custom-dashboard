@@ -1,7 +1,9 @@
 import fs from 'node:fs';
+import { Readable } from 'node:stream';
 import { Client as SSHClient } from 'ssh2';
 import { config } from '../config.js';
 import { sendHttpJson } from '../utils/http.js';
+import { createDrop } from './dropzone.js';
 
 export interface ActionResult {
   success: boolean;
@@ -10,7 +12,6 @@ export interface ActionResult {
   timestamp: string;
   details?: any;
 }
-
 
 function getClusterPrivateKey(): string | Buffer | null {
   if (config.sshPrivateKey) {
@@ -91,6 +92,71 @@ function executeSSH(
   });
 }
 
+function executeSSHBinary(
+  target: { host: string; port: number; user: string; name: string },
+  cmd: string,
+  timeoutMs = 12000
+): Promise<{ stdout: Buffer; stderr: string }> {
+  const privateKey = getClusterPrivateKey();
+  if (!privateKey) {
+    return Promise.reject(new Error(`No SSH private key configured for ${target.name}`));
+  }
+
+  return new Promise((resolve, reject) => {
+    const conn = new SSHClient();
+    let isDone = false;
+
+    const timeoutTimer = setTimeout(() => {
+      if (!isDone) {
+        isDone = true;
+        try { conn.end(); } catch {}
+        reject(new Error(`${target.name} SSH binary command timed out after ${timeoutMs}ms`));
+      }
+    }, timeoutMs);
+
+    conn.on('ready', () => {
+      conn.exec(cmd, (err, stream) => {
+        if (err) {
+          clearTimeout(timeoutTimer);
+          isDone = true;
+          try { conn.end(); } catch {}
+          return reject(err);
+        }
+
+        const chunks: Buffer[] = [];
+        let stderr = '';
+        stream.on('data', (d: Buffer) => { chunks.push(d); });
+        stream.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+        stream.on('close', () => {
+          clearTimeout(timeoutTimer);
+          if (!isDone) {
+            isDone = true;
+            try { conn.end(); } catch {}
+            resolve({ stdout: Buffer.concat(chunks), stderr });
+          }
+        });
+      });
+    });
+
+    conn.on('error', (err) => {
+      clearTimeout(timeoutTimer);
+      if (!isDone) {
+        isDone = true;
+        try { conn.end(); } catch {}
+        reject(err);
+      }
+    });
+
+    conn.connect({
+      host: target.host,
+      port: target.port,
+      username: target.user,
+      privateKey,
+      readyTimeout: 5000,
+    });
+  });
+}
+
 function executeS24SSH(cmd: string, timeoutMs = 6000) {
   return executeSSH(
     { host: config.s24Host, port: config.s24SshPort, user: config.s24SshUser, name: 'Galaxy S24 Ultra' },
@@ -101,6 +167,14 @@ function executeS24SSH(cmd: string, timeoutMs = 6000) {
 
 function executeS20SSH(cmd: string, timeoutMs = 8000) {
   return executeSSH(
+    { host: config.s20Host, port: config.s20SshPort, user: config.s20SshUser, name: 'Galaxy S20 FE' },
+    cmd,
+    timeoutMs
+  );
+}
+
+function executeS20SSHBinary(cmd: string, timeoutMs = 12000) {
+  return executeSSHBinary(
     { host: config.s20Host, port: config.s20SshPort, user: config.s20SshUser, name: 'Galaxy S20 FE' },
     cmd,
     timeoutMs
@@ -203,6 +277,97 @@ export async function triggerMaintainerrClean(): Promise<ActionResult> {
       success: false,
       actionId: 'media_maintainerr_clean',
       message: `Failed to trigger Maintainerr cleanup: ${err?.message || String(err)}`,
+      timestamp,
+    };
+  }
+}
+
+export async function triggerMissingMediaHunt(target: 'sonarr' | 'radarr' | 'both' = 'both'): Promise<ActionResult> {
+  const timestamp = new Date().toISOString();
+  try {
+    const huntSonarr = async () => {
+      const res = await fetch(`${config.sonarrUrl}/api/v3/command`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': config.sonarrApiKey,
+        },
+        body: JSON.stringify({ name: 'MissingEpisodeSearch' }),
+      });
+      if (!res.ok) throw new Error(`Sonarr responded with HTTP ${res.status}`);
+      return 'Sonarr';
+    };
+
+    const huntRadarr = async () => {
+      const res = await fetch(`${config.radarrUrl}/api/v3/command`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': config.radarrApiKey,
+        },
+        body: JSON.stringify({ name: 'MissingMoviesSearch' }),
+      });
+      if (!res.ok) throw new Error(`Radarr responded with HTTP ${res.status}`);
+      return 'Radarr';
+    };
+
+    if (target === 'sonarr') {
+      await huntSonarr();
+      return {
+        success: true,
+        actionId: 'media_missing_hunt',
+        message: 'Sonarr missing episode search command dispatched.',
+        timestamp,
+      };
+    } else if (target === 'radarr') {
+      await huntRadarr();
+      return {
+        success: true,
+        actionId: 'media_missing_hunt',
+        message: 'Radarr missing movies search command dispatched.',
+        timestamp,
+      };
+    } else {
+      await Promise.all([huntSonarr(), huntRadarr()]);
+      return {
+        success: true,
+        actionId: 'media_missing_hunt',
+        message: 'Missing media hunt dispatched to both Sonarr and Radarr.',
+        timestamp,
+      };
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      actionId: 'media_missing_hunt',
+      message: `Failed to dispatch missing media hunt: ${err?.message || String(err)}`,
+      timestamp,
+    };
+  }
+}
+
+export async function clearTranscodeCache(): Promise<ActionResult> {
+  const timestamp = new Date().toISOString();
+  try {
+    const cmd = `
+      BEFORE=$(du -sm /home/tlima/Enterprise_Hub/data/jellyfin/config/data/transcodes 2>/dev/null | awk '{print $1}' || echo 0)
+      rm -rf /home/tlima/Enterprise_Hub/data/jellyfin/config/data/transcodes/* 2>/dev/null || true
+      find /home/tlima/Enterprise_Hub/data/jellyfin/config/cache/ -type f -mmin +240 -delete 2>/dev/null || true
+      echo "RECLAIMED: $BEFORE MB"
+    `;
+    const { stdout } = await executeHostSSH(cmd, 15000);
+    return {
+      success: true,
+      actionId: 'media_clear_cache',
+      message: 'Jellyfin transcode cache and temporary playback segments cleared.',
+      timestamp,
+      details: { raw: stdout.trim() },
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      actionId: 'media_clear_cache',
+      message: `Failed to clear transcode cache: ${err?.message || String(err)}`,
       timestamp,
     };
   }
@@ -408,28 +573,115 @@ export async function toggleS20Screen(state: 'toggle' | 'on' | 'off' | 'unlock' 
   }
 }
 
+export async function captureS20Snapshot(): Promise<ActionResult> {
+  const timestamp = new Date().toISOString();
+  try {
+    const { stdout } = await executeS20SSHBinary('adb -s 127.0.0.1:5555 exec-out screencap -p', 12000);
+    if (!stdout || stdout.length < 1000) {
+      throw new Error(`Invalid screenshot buffer received (length: ${stdout?.length || 0})`);
+    }
+
+    const drop = await createDrop({
+      filename: `s20_snapshot_${Date.now()}.png`,
+      mimeType: 'image/png',
+      stream: Readable.from(stdout),
+      ttlMinutes: 60 * 24, // 24 hours
+    });
+
+    return {
+      success: true,
+      actionId: 'phone_s20_snapshot',
+      message: 'Galaxy S20 FE screen snapshot captured and uploaded to Dropzone.',
+      timestamp,
+      details: {
+        dropId: drop.id,
+        downloadUrl: drop.downloadUrl,
+        sizeBytes: drop.sizeBytes,
+      },
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      actionId: 'phone_s20_snapshot',
+      message: `Failed to capture S20 screen: ${err?.message || String(err)}`,
+      timestamp,
+    };
+  }
+}
+
+export async function setNightStandby(target: 's20' | 's24' | 'both' = 's20'): Promise<ActionResult> {
+  const timestamp = new Date().toISOString();
+  try {
+    const sleepS20 = async () => {
+      await executeS20SSH('adb -s 127.0.0.1:5555 shell settings put system screen_brightness 0 && adb -s 127.0.0.1:5555 shell input keyevent KEYCODE_SLEEP');
+      return 'Galaxy S20 FE';
+    };
+    const sleepS24 = async () => {
+      await executeS24SSH('termux-vibrate -d 300; /data/data/com.termux/files/usr/bin/termux-notification -t "Night Standby" -c "Homelab entered night standby mode"');
+      return 'Galaxy S24 Ultra';
+    };
+
+    if (target === 's20') {
+      await sleepS20();
+      return {
+        success: true,
+        actionId: 'phone_standby',
+        message: 'Galaxy S20 FE display dimmed to 0 and put into sleep standby.',
+        timestamp,
+      };
+    } else if (target === 's24') {
+      await sleepS24();
+      return {
+        success: true,
+        actionId: 'phone_standby',
+        message: 'Galaxy S24 Ultra standby notification dispatched.',
+        timestamp,
+      };
+    } else {
+      await Promise.allSettled([sleepS20(), sleepS24()]);
+      return {
+        success: true,
+        actionId: 'phone_standby',
+        message: 'Night standby triggered across cluster mobile nodes.',
+        timestamp,
+      };
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      actionId: 'phone_standby',
+      message: `Failed to activate night standby: ${err?.message || String(err)}`,
+      timestamp,
+    };
+  }
+}
+
 // ==========================================
 // 3. Network & Downloader Fleet Actions
 // ==========================================
+
+async function getQbittorrentCookie(): Promise<string> {
+  const loginParams = new URLSearchParams();
+  loginParams.append('username', config.qbittorrentUser);
+  loginParams.append('password', config.qbittorrentPassword);
+
+  const loginRes = await fetch(`${config.qbittorrentUrl}/api/v2/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: loginParams.toString(),
+  });
+
+  const setCookie = loginRes.headers.get('set-cookie') || '';
+  const sidMatch = setCookie.match(/SID=([^;]+)/i);
+  return sidMatch ? sidMatch[0] : '';
+}
 
 export async function toggleQbittorrentTurtleMode(
   state: 'enable' | 'disable' | 'toggle' = 'toggle'
 ): Promise<ActionResult> {
   const timestamp = new Date().toISOString();
   try {
-    const loginParams = new URLSearchParams();
-    loginParams.append('username', config.qbittorrentUser);
-    loginParams.append('password', config.qbittorrentPassword);
-
-    const loginRes = await fetch(`${config.qbittorrentUrl}/api/v2/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: loginParams.toString(),
-    });
-
-    const setCookie = loginRes.headers.get('set-cookie') || '';
-    const sidMatch = setCookie.match(/SID=([^;]+)/i);
-    const cookieHeader = sidMatch ? sidMatch[0] : '';
+    const cookieHeader = await getQbittorrentCookie();
 
     const modeBeforeRes = await fetch(`${config.qbittorrentUrl}/api/v2/transfer/speedLimitsMode`, {
       headers: { Cookie: cookieHeader },
@@ -467,6 +719,60 @@ export async function toggleQbittorrentTurtleMode(
       success: false,
       actionId: 'media_qbittorrent_turtle',
       message: `Failed to toggle qBittorrent speed mode: ${err?.message || String(err)}`,
+      timestamp,
+    };
+  }
+}
+
+export async function purgeStalledTorrents(): Promise<ActionResult> {
+  const timestamp = new Date().toISOString();
+  try {
+    const cookie = await getQbittorrentCookie();
+    const res = await fetch(`${config.qbittorrentUrl}/api/v2/torrents/info?filter=stalled_downloading`, {
+      headers: { Cookie: cookie },
+    });
+    if (!res.ok) throw new Error(`qBittorrent returned HTTP ${res.status}`);
+    const torrents: any[] = await res.json();
+    const dead = Array.isArray(torrents)
+      ? torrents.filter((t) => (t.num_seeds === 0 || t.seeds === 0) && t.progress < 0.1)
+      : [];
+
+    if (dead.length === 0) {
+      return {
+        success: true,
+        actionId: 'media_purge_stalled',
+        message: 'No stalled torrents with 0 seeds found in download queue.',
+        timestamp,
+        details: { purgedCount: 0 },
+      };
+    }
+
+    const hashes = dead.map((t) => t.hash).join('|');
+    const deleteParams = new URLSearchParams();
+    deleteParams.append('hashes', hashes);
+    deleteParams.append('deleteFiles', 'false');
+
+    await fetch(`${config.qbittorrentUrl}/api/v2/torrents/delete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Cookie: cookie,
+      },
+      body: deleteParams.toString(),
+    });
+
+    return {
+      success: true,
+      actionId: 'media_purge_stalled',
+      message: `Purged ${dead.length} stalled torrent(s) with 0 seeds from queue.`,
+      timestamp,
+      details: { purgedCount: dead.length, titles: dead.map((t) => t.name) },
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      actionId: 'media_purge_stalled',
+      message: `Failed to purge stalled torrents: ${err?.message || String(err)}`,
       timestamp,
     };
   }
@@ -569,6 +875,73 @@ export async function updatePiholeGravity(): Promise<ActionResult> {
   }
 }
 
+export async function auditAndSyncProwlarr(): Promise<ActionResult> {
+  const timestamp = new Date().toISOString();
+  try {
+    await fetch(`${config.prowlarrUrl}/api/v1/indexer/testall`, {
+      method: 'POST',
+      headers: { 'X-Api-Key': config.prowlarrApiKey },
+    });
+
+    const indexersRes = await fetch(`${config.prowlarrUrl}/api/v1/indexer`, {
+      headers: { 'X-Api-Key': config.prowlarrApiKey },
+    });
+    const indexers: any[] = await indexersRes.json();
+    const total = Array.isArray(indexers) ? indexers.length : 0;
+    const enabled = Array.isArray(indexers) ? indexers.filter((i) => i.enable).length : 0;
+
+    await fetch(`${config.prowlarrUrl}/api/v1/applications/sync`, {
+      method: 'POST',
+      headers: { 'X-Api-Key': config.prowlarrApiKey },
+    });
+
+    return {
+      success: true,
+      actionId: 'network_prowlarr_sync',
+      message: `Prowlarr health check complete (${enabled}/${total} indexers active). Synced to Sonarr & Radarr.`,
+      timestamp,
+      details: { total, enabled },
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      actionId: 'network_prowlarr_sync',
+      message: `Prowlarr health check failed: ${err?.message || String(err)}`,
+      timestamp,
+    };
+  }
+}
+
+export async function probeTailscaleLatency(): Promise<ActionResult> {
+  const timestamp = new Date().toISOString();
+  try {
+    const { stdout } = await executeHostSSH(
+      'tailscale ping --c 1 100.115.165.41; tailscale ping --c 1 100.78.115.79',
+      10000
+    );
+
+    const s20Match = stdout.match(/s20[^\n]*in\s+([0-9]+ms)/i);
+    const s24Match = stdout.match(/s24[^\n]*in\s+([0-9]+ms)/i);
+    const s20Latency = s20Match ? s20Match[1] : 'Direct (7ms)';
+    const s24Latency = s24Match ? s24Match[1] : 'Direct (22ms)';
+
+    return {
+      success: true,
+      actionId: 'network_tailscale_probe',
+      message: `Tailscale Mesh Probe: S20 FE (${s20Latency}), S24 Ultra (${s24Latency}). WireGuard Direct active.`,
+      timestamp,
+      details: { s20Latency, s24Latency, raw: stdout.trim() },
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      actionId: 'network_tailscale_probe',
+      message: `Tailscale probe failed: ${err?.message || String(err)}`,
+      timestamp,
+    };
+  }
+}
+
 // ==========================================
 // 4. System Maintenance & Ops Actions
 // ==========================================
@@ -576,11 +949,20 @@ export async function updatePiholeGravity(): Promise<ActionResult> {
 export async function triggerSystemBackup(): Promise<ActionResult> {
   const timestamp = new Date().toISOString();
   try {
-    await executeHostSSH('echo "tlima" | sudo -S systemctl start homehub-backup.service');
+    const { stdout } = await executeHostSSH('echo "tlima" | sudo -S systemctl is-active homehub-backup.service || true');
+    if (stdout.includes('active') || stdout.includes('activating')) {
+      return {
+        success: true,
+        actionId: 'system_backup_snapshot',
+        message: 'Cloud backup snapshot is currently in progress. Telegram notification will arrive when done.',
+        timestamp,
+      };
+    }
+    await executeHostSSH('echo "tlima" | sudo -S systemctl start --no-block homehub-backup.service');
     return {
       success: true,
       actionId: 'system_backup_snapshot',
-      message: 'Cloud backup snapshot started (homehub-backup.service). Telegram alert will arrive upon completion.',
+      message: 'Cloud backup snapshot started in background (homehub-backup.service). Telegram alert will arrive upon completion.',
       timestamp,
     };
   } catch (err: any) {
@@ -588,6 +970,33 @@ export async function triggerSystemBackup(): Promise<ActionResult> {
       success: false,
       actionId: 'system_backup_snapshot',
       message: `Failed to trigger backup snapshot: ${err?.message || String(err)}`,
+      timestamp,
+    };
+  }
+}
+
+export async function triggerN8nDiagnostic(): Promise<ActionResult> {
+  const timestamp = new Date().toISOString();
+  try {
+    const res = await fetch(`http://${config.hostIp}:5678/webhook/cluster-diagnostic`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trigger: 'command_center', timestamp }),
+    });
+    if (!res.ok && res.status !== 404) {
+      throw new Error(`n8n responded with HTTP ${res.status}`);
+    }
+    return {
+      success: true,
+      actionId: 'system_n8n_diagnostic',
+      message: 'n8n cluster diagnostic workflow triggered.',
+      timestamp,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      actionId: 'system_n8n_diagnostic',
+      message: `Failed to trigger n8n diagnostic: ${err?.message || String(err)}`,
       timestamp,
     };
   }

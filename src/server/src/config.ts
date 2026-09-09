@@ -28,6 +28,8 @@ export const config = {
   bazarrUrl: process.env.BAZARR_URL || `http://${HOST_IP}:6767`,
   bazarrApiKey: process.env.BAZARR_API_KEY || '353f9e0429646737f64bdfc258813353',
   maintainerrUrl: process.env.MAINTAINERR_URL || `http://${HOST_IP}:6246`,
+  prowlarrUrl: process.env.PROWLARR_URL || `http://${HOST_IP}:9696`,
+  prowlarrApiKey: process.env.PROWLARR_API_KEY || 'a97c7d417ef54205a6e2e70aae7b7539',
   qbittorrentUrl: process.env.QBITTORRENT_URL || `http://${HOST_IP}:8080`,
   qbittorrentUser: process.env.QBITTORRENT_USER || 'tlima',
   qbittorrentPassword: process.env.QBITTORRENT_PASSWORD || 'Ttl*06111991',

@@ -4,14 +4,22 @@ import {
   triggerJellyfinRefresh,
   triggerBazarrSync,
   triggerMaintainerrClean,
+  triggerMissingMediaHunt,
+  clearTranscodeCache,
+  purgeStalledTorrents,
   pushS24Clipboard,
   speakPhoneTTS,
   pingS24Phone,
   toggleS20Screen,
+  captureS20Snapshot,
+  setNightStandby,
   toggleQbittorrentTurtleMode,
   pausePiholeBlocking,
   updatePiholeGravity,
+  auditAndSyncProwlarr,
+  probeTailscaleLatency,
   triggerSystemBackup,
+  triggerN8nDiagnostic,
 } from '../services/actions.js';
 
 export const actionRoutes: FastifyPluginAsync = async (fastify) => {
@@ -56,9 +64,25 @@ export const actionRoutes: FastifyPluginAsync = async (fastify) => {
     reply.status(result.success ? 200 : 500).send(result);
   });
 
+  fastify.post<{ Body: { target?: 'sonarr' | 'radarr' | 'both' } }>('/media/missing-hunt', async (request, reply) => {
+    const { target } = request.body || {};
+    const result = await triggerMissingMediaHunt(target);
+    reply.status(result.success ? 200 : 500).send(result);
+  });
+
+  fastify.post('/media/clear-cache', async (_request, reply) => {
+    const result = await clearTranscodeCache();
+    reply.status(result.success ? 200 : 500).send(result);
+  });
+
   fastify.post<{ Body: { state?: 'enable' | 'disable' | 'toggle' } }>('/media/turtle-mode', async (request, reply) => {
     const { state } = request.body || {};
     const result = await toggleQbittorrentTurtleMode(state);
+    reply.status(result.success ? 200 : 500).send(result);
+  });
+
+  fastify.post('/media/purge-stalled', async (_request, reply) => {
+    const result = await purgeStalledTorrents();
     reply.status(result.success ? 200 : 500).send(result);
   });
 
@@ -86,6 +110,17 @@ export const actionRoutes: FastifyPluginAsync = async (fastify) => {
     reply.status(result.success ? 200 : 500).send(result);
   });
 
+  fastify.post('/phone/s20/snapshot', async (_request, reply) => {
+    const result = await captureS20Snapshot();
+    reply.status(result.success ? 200 : 500).send(result);
+  });
+
+  fastify.post<{ Body: { target?: 's20' | 's24' | 'both' } }>('/phone/standby', async (request, reply) => {
+    const { target } = request.body || {};
+    const result = await setNightStandby(target);
+    reply.status(result.success ? 200 : 500).send(result);
+  });
+
   // Network & Ingress Routes
   fastify.post<{ Body: { duration?: number } }>('/network/pihole/pause', async (request, reply) => {
     const { duration } = request.body || {};
@@ -98,9 +133,24 @@ export const actionRoutes: FastifyPluginAsync = async (fastify) => {
     reply.status(result.success ? 200 : 500).send(result);
   });
 
+  fastify.post('/network/prowlarr/audit-sync', async (_request, reply) => {
+    const result = await auditAndSyncProwlarr();
+    reply.status(result.success ? 200 : 500).send(result);
+  });
+
+  fastify.post('/network/tailscale/probe', async (_request, reply) => {
+    const result = await probeTailscaleLatency();
+    reply.status(result.success ? 200 : 500).send(result);
+  });
+
   // System Maintenance & Ops Routes
   fastify.post('/system/backup', async (_request, reply) => {
     const result = await triggerSystemBackup();
+    reply.status(result.success ? 200 : 500).send(result);
+  });
+
+  fastify.post('/system/n8n/diagnostic', async (_request, reply) => {
+    const result = await triggerN8nDiagnostic();
     reply.status(result.success ? 200 : 500).send(result);
   });
 };
