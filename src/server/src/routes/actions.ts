@@ -4,7 +4,7 @@ import {
   triggerJellyfinRefresh,
   triggerBazarrSync,
   triggerMaintainerrClean,
-  triggerMissingMediaHunt,
+  rescanMediaLibrary,
   clearTranscodeCache,
   purgeStalledTorrents,
   pushS24Clipboard,
@@ -64,9 +64,9 @@ export const actionRoutes: FastifyPluginAsync = async (fastify) => {
     reply.status(result.success ? 200 : 500).send(result);
   });
 
-  fastify.post<{ Body: { target?: 'sonarr' | 'radarr' | 'both' } }>('/media/missing-hunt', async (request, reply) => {
+  fastify.post<{ Body: { target?: 'sonarr' | 'radarr' | 'both' } }>('/media/rescan-library', async (request, reply) => {
     const { target } = request.body || {};
-    const result = await triggerMissingMediaHunt(target);
+    const result = await rescanMediaLibrary(target);
     reply.status(result.success ? 200 : 500).send(result);
   });
 

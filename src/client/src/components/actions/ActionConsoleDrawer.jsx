@@ -210,10 +210,10 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
     return res;
   };
 
-  const handleMissingHunt = async (target = 'both') => {
+  const handleRescanLibrary = async (target = 'both') => {
     const targetLabel = target === 'sonarr' ? 'Sonarr (TV)' : target === 'radarr' ? 'Radarr (Movies)' : 'both Sonarr & Radarr';
-    addLog(`▶ Triggering missing media hunt across indexers for ${targetLabel}...`, 'info');
-    const res = await dispatchClusterAction('/media/missing-hunt', { target });
+    addLog(`▶ Triggering disk rescan and metadata refresh for ${targetLabel}...`, 'info');
+    const res = await dispatchClusterAction('/media/rescan-library', { target });
     if (res.needsPin) setIsAuthorized(false);
     addLog(res.message, res.success ? 'success' : 'error');
     return res;
@@ -482,17 +482,17 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
                       onExecute={handleBazarrSync}
                     />
                     <ActionCard
-                      title="Hunt Missing Media"
-                      description="Commands Sonarr & Radarr to actively scan indexers for monitored missing media."
+                      title="Rescan Library"
+                      description="Rescans disk folders to detect new files and refresh metadata (safe, zero downloads)."
                       category="media"
-                      icon={Search}
+                      icon={RefreshCw}
                       options={[
                         { id: 'both', label: 'Both' },
                         { id: 'sonarr', label: 'TV (Sonarr)' },
                         { id: 'radarr', label: 'Movies (Radarr)' },
                       ]}
                       defaultOption="both"
-                      onExecute={handleMissingHunt}
+                      onExecute={handleRescanLibrary}
                     />
                     <ActionCard
                       title="Prune Watched"

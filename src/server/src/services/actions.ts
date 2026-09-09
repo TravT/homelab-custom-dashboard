@@ -282,65 +282,65 @@ export async function triggerMaintainerrClean(): Promise<ActionResult> {
   }
 }
 
-export async function triggerMissingMediaHunt(target: 'sonarr' | 'radarr' | 'both' = 'both'): Promise<ActionResult> {
+export async function rescanMediaLibrary(target: 'sonarr' | 'radarr' | 'both' = 'both'): Promise<ActionResult> {
   const timestamp = new Date().toISOString();
   try {
-    const huntSonarr = async () => {
+    const rescanSonarr = async () => {
       const res = await fetch(`${config.sonarrUrl}/api/v3/command`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-Api-Key': config.sonarrApiKey,
         },
-        body: JSON.stringify({ name: 'MissingEpisodeSearch' }),
+        body: JSON.stringify({ name: 'RescanSeries' }),
       });
       if (!res.ok) throw new Error(`Sonarr responded with HTTP ${res.status}`);
       return 'Sonarr';
     };
 
-    const huntRadarr = async () => {
+    const rescanRadarr = async () => {
       const res = await fetch(`${config.radarrUrl}/api/v3/command`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-Api-Key': config.radarrApiKey,
         },
-        body: JSON.stringify({ name: 'MissingMoviesSearch' }),
+        body: JSON.stringify({ name: 'RefreshMovie' }),
       });
       if (!res.ok) throw new Error(`Radarr responded with HTTP ${res.status}`);
       return 'Radarr';
     };
 
     if (target === 'sonarr') {
-      await huntSonarr();
+      await rescanSonarr();
       return {
         success: true,
-        actionId: 'media_missing_hunt',
-        message: 'Sonarr missing episode search command dispatched.',
+        actionId: 'media_rescan_library',
+        message: 'Sonarr disk rescan and metadata refresh dispatched.',
         timestamp,
       };
     } else if (target === 'radarr') {
-      await huntRadarr();
+      await rescanRadarr();
       return {
         success: true,
-        actionId: 'media_missing_hunt',
-        message: 'Radarr missing movies search command dispatched.',
+        actionId: 'media_rescan_library',
+        message: 'Radarr disk rescan and metadata refresh dispatched.',
         timestamp,
       };
     } else {
-      await Promise.all([huntSonarr(), huntRadarr()]);
+      await Promise.all([rescanSonarr(), rescanRadarr()]);
       return {
         success: true,
-        actionId: 'media_missing_hunt',
-        message: 'Missing media hunt dispatched to both Sonarr and Radarr.',
+        actionId: 'media_rescan_library',
+        message: 'Media library rescan dispatched to both Sonarr and Radarr (safe, zero downloads).',
         timestamp,
       };
     }
   } catch (err: any) {
     return {
       success: false,
-      actionId: 'media_missing_hunt',
-      message: `Failed to dispatch missing media hunt: ${err?.message || String(err)}`,
+      actionId: 'media_rescan_library',
+      message: `Failed to dispatch library rescan: ${err?.message || String(err)}`,
       timestamp,
     };
   }
