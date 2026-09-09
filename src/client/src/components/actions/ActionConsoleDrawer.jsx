@@ -39,6 +39,7 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
   const [isCheckingPin, setIsCheckingPin] = useState(false);
+  const [snapshotModal, setSnapshotModal] = useState(null);
 
   // Sync authorization state when modal opens
   useEffect(() => {
@@ -196,6 +197,12 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
     if (res.needsPin) setIsAuthorized(false);
     if (res.success && res.details?.downloadUrl) {
       addLog(`✓ Camera snapshot saved! Preview: ${res.details.downloadUrl}`, 'success');
+      setSnapshotModal({
+        src: res.details.previewBase64 || res.details.downloadUrl,
+        downloadUrl: res.details.downloadUrl,
+        camera: res.details.camera || camLabel,
+        sizeBytes: res.details.sizeBytes || 0,
+      });
     } else {
       addLog(res.message, res.success ? 'success' : 'error');
     }
@@ -614,6 +621,60 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
               <ActionLogFeed logs={logs} onClear={clearLogs} />
             </div>
           </>
+        )}
+
+        {/* Snapshot Instant Preview Modal */}
+        {snapshotModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+            <div className="relative max-w-2xl w-full bg-slate-900/95 border border-amber-500/30 rounded-2xl p-4 sm:p-5 shadow-2xl flex flex-col items-center">
+              <button
+                onClick={() => setSnapshotModal(null)}
+                className="absolute top-3 right-3 text-slate-400 hover:text-white p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                title="Close preview"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-2 mb-3 text-sm text-slate-200 font-medium">
+                <Camera className="w-4 h-4 text-amber-400" />
+                <span>S20 FE Snapshot • {snapshotModal.camera}</span>
+                {snapshotModal.sizeBytes > 0 && (
+                  <span className="text-xs text-slate-400 font-mono">({Math.round(snapshotModal.sizeBytes / 1024)} KB)</span>
+                )}
+              </div>
+
+              <div className="w-full max-h-[60vh] overflow-hidden rounded-xl border border-white/10 bg-black flex items-center justify-center">
+                <img
+                  src={snapshotModal.src}
+                  alt="Camera Snapshot"
+                  className="max-h-[60vh] w-auto object-contain rounded-lg shadow-inner"
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-between w-full mt-4 pt-3 border-t border-white/10 gap-3">
+                <span className="text-xs text-slate-400 truncate font-mono text-center sm:text-left w-full sm:w-auto">
+                  Saved: {snapshotModal.downloadUrl}
+                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={snapshotModal.downloadUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/30 transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Open in Dropzone
+                  </a>
+                  <button
+                    onClick={() => setSnapshotModal(null)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/10 text-white hover:bg-white/20 transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
