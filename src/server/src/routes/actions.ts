@@ -10,6 +10,8 @@ import {
   toggleS20Screen,
   toggleQbittorrentTurtleMode,
   pausePiholeBlocking,
+  updatePiholeGravity,
+  triggerSystemBackup,
 } from '../services/actions.js';
 
 export const actionRoutes: FastifyPluginAsync = async (fastify) => {
@@ -54,8 +56,9 @@ export const actionRoutes: FastifyPluginAsync = async (fastify) => {
     reply.status(result.success ? 200 : 500).send(result);
   });
 
-  fastify.post('/media/turtle-mode', async (_request, reply) => {
-    const result = await toggleQbittorrentTurtleMode();
+  fastify.post<{ Body: { state?: 'enable' | 'disable' | 'toggle' } }>('/media/turtle-mode', async (request, reply) => {
+    const { state } = request.body || {};
+    const result = await toggleQbittorrentTurtleMode(state);
     reply.status(result.success ? 200 : 500).send(result);
   });
 
@@ -87,6 +90,17 @@ export const actionRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Body: { duration?: number } }>('/network/pihole/pause', async (request, reply) => {
     const { duration } = request.body || {};
     const result = await pausePiholeBlocking(duration !== undefined ? Number(duration) : 300);
+    reply.status(result.success ? 200 : 500).send(result);
+  });
+
+  fastify.post('/network/pihole/gravity', async (_request, reply) => {
+    const result = await updatePiholeGravity();
+    reply.status(result.success ? 200 : 500).send(result);
+  });
+
+  // System Maintenance & Ops Routes
+  fastify.post('/system/backup', async (_request, reply) => {
+    const result = await triggerSystemBackup();
     reply.status(result.success ? 200 : 500).send(result);
   });
 };

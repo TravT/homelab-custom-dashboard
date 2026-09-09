@@ -12,6 +12,8 @@ import {
   Lock,
   Unlock,
   ShieldAlert,
+  HardDriveDownload,
+  RefreshCw,
 } from 'lucide-react';
 import { ActionCard } from './ActionCard.jsx';
 import { ActionLogFeed } from './ActionLogFeed.jsx';
@@ -144,9 +146,10 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
     return res;
   };
 
-  const handleToggleTurtleMode = async () => {
-    addLog('▶ Toggling qBittorrent Turtle Mode (speed limits)...', 'info');
-    const res = await dispatchClusterAction('/media/turtle-mode');
+  const handleToggleTurtleMode = async (state = 'toggle') => {
+    const label = state === 'enable' ? 'enabling throttle' : state === 'disable' ? 'disabling throttle' : 'toggling';
+    addLog(`▶ Updating qBittorrent speed limits mode (${label})...`, 'info');
+    const res = await dispatchClusterAction('/media/turtle-mode', { state });
     if (res.needsPin) setIsAuthorized(false);
     addLog(res.message, res.success ? 'success' : 'error');
     return res;
@@ -157,6 +160,22 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
     const actionLabel = duration > 0 ? `pausing for ${Math.round(duration / 60)}m` : 're-enabling';
     addLog(`▶ Updating Pi-hole ad-blocking (${actionLabel})...`, 'info');
     const res = await dispatchClusterAction('/network/pihole/pause', { duration });
+    if (res.needsPin) setIsAuthorized(false);
+    addLog(res.message, res.success ? 'success' : 'error');
+    return res;
+  };
+
+  const handleUpdateGravity = async () => {
+    addLog('▶ Pulling latest ad & malware blocklists into Pi-hole gravity...', 'info');
+    const res = await dispatchClusterAction('/network/pihole/gravity');
+    if (res.needsPin) setIsAuthorized(false);
+    addLog(res.message, res.success ? 'success' : 'error');
+    return res;
+  };
+
+  const handleTriggerBackup = async () => {
+    addLog('▶ Triggering on-demand Google Drive cloud backup snapshot...', 'info');
+    const res = await dispatchClusterAction('/system/backup');
     if (res.needsPin) setIsAuthorized(false);
     addLog(res.message, res.success ? 'success' : 'error');
     return res;
@@ -264,6 +283,7 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
                 { id: 'mobile', label: 'Mobile Fleet' },
                 { id: 'media', label: 'Media Suite' },
                 { id: 'network', label: 'Network & DNS' },
+                { id: 'ops', label: 'System Ops' },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -373,9 +393,15 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
                     />
                     <ActionCard
                       title="Torrent Turtle Mode"
-                      description="Toggles alternative speed limits in qBittorrent to prioritize bandwidth during calls."
+                      description="Limits download/upload bandwidth in qBittorrent to prevent latency spikes."
                       category="media"
                       icon={Zap}
+                      options={[
+                        { id: 'enable', label: 'Throttle (On)' },
+                        { id: 'disable', label: 'Unlimited (Off)' },
+                        { id: 'toggle', label: 'Toggle' },
+                      ]}
+                      defaultOption="toggle"
                       onExecute={handleToggleTurtleMode}
                     />
                   </div>
@@ -401,6 +427,31 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
                       ]}
                       defaultOption="300"
                       onExecute={handlePausePihole}
+                    />
+                    <ActionCard
+                      title="Update Gravity Blocklists"
+                      description="Forces Pi-hole to pull newest malware & telemetry adlists and rebuild gravity index."
+                      category="network"
+                      icon={RefreshCw}
+                      onExecute={handleUpdateGravity}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 4. System Maintenance & Ops */}
+              {(activeTab === 'all' || activeTab === 'ops') && (
+                <div className="space-y-3 pt-2">
+                  <div className="font-vt323 text-xl text-gray-400 tracking-wider uppercase flex items-center gap-2">
+                    <span className="text-amber-400 opacity-50">//</span> SYSTEM MAINTENANCE & OPS
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <ActionCard
+                      title="Cloud Backup Snapshot"
+                      description="Triggers offsite backup of application configs and databases to Google Drive via rclone."
+                      category="media"
+                      icon={HardDriveDownload}
+                      onExecute={handleTriggerBackup}
                     />
                   </div>
                 </div>

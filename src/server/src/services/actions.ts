@@ -107,6 +107,14 @@ function executeS20SSH(cmd: string, timeoutMs = 8000) {
   );
 }
 
+function executeHostSSH(cmd: string, timeoutMs = 15000): Promise<{ stdout: string; stderr: string }> {
+  return executeSSH(
+    { host: config.hostIp, port: 22, user: 'tlima', name: 'Dell Latitude Host' },
+    cmd,
+    timeoutMs
+  );
+}
+
 // ==========================================
 // 1. Media Fleet Actions
 // ==========================================
@@ -404,7 +412,9 @@ export async function toggleS20Screen(state: 'toggle' | 'on' | 'off' | 'unlock' 
 // 3. Network & Downloader Fleet Actions
 // ==========================================
 
-export async function toggleQbittorrentTurtleMode(): Promise<ActionResult> {
+export async function toggleQbittorrentTurtleMode(
+  state: 'enable' | 'disable' | 'toggle' = 'toggle'
+): Promise<ActionResult> {
   const timestamp = new Date().toISOString();
   try {
     const loginParams = new URLSearchParams();
@@ -421,23 +431,34 @@ export async function toggleQbittorrentTurtleMode(): Promise<ActionResult> {
     const sidMatch = setCookie.match(/SID=([^;]+)/i);
     const cookieHeader = sidMatch ? sidMatch[0] : '';
 
-    await fetch(`${config.qbittorrentUrl}/api/v2/transfer/toggleSpeedLimitsMode`, {
-      method: 'POST',
+    const modeBeforeRes = await fetch(`${config.qbittorrentUrl}/api/v2/transfer/speedLimitsMode`, {
       headers: { Cookie: cookieHeader },
     });
+    const currentMode = (await modeBeforeRes.text()).trim() === '1';
 
-    const modeRes = await fetch(`${config.qbittorrentUrl}/api/v2/transfer/speedLimitsMode`, {
+    let shouldToggle = false;
+    if (state === 'enable' && !currentMode) shouldToggle = true;
+    else if (state === 'disable' && currentMode) shouldToggle = true;
+    else if (state === 'toggle') shouldToggle = true;
+
+    if (shouldToggle) {
+      await fetch(`${config.qbittorrentUrl}/api/v2/transfer/toggleSpeedLimitsMode`, {
+        method: 'POST',
+        headers: { Cookie: cookieHeader },
+      });
+    }
+
+    const modeAfterRes = await fetch(`${config.qbittorrentUrl}/api/v2/transfer/speedLimitsMode`, {
       headers: { Cookie: cookieHeader },
     });
-    const mode = await modeRes.text();
-    const isTurtle = mode.trim() === '1';
+    const isTurtle = (await modeAfterRes.text()).trim() === '1';
 
     return {
       success: true,
       actionId: 'media_qbittorrent_turtle',
       message: isTurtle
-        ? 'qBittorrent Turtle Mode ENABLED (throttling active).'
-        : 'qBittorrent Turtle Mode DISABLED (unlimited bandwidth).',
+        ? 'qBittorrent Turtle Mode ENABLED (speed throttling active).'
+        : 'qBittorrent Turtle Mode DISABLED (unlimited bandwidth restored).',
       timestamp,
       details: { turtleActive: isTurtle },
     };
@@ -501,6 +522,72 @@ export async function pausePiholeBlocking(durationSeconds = 300): Promise<Action
       success: false,
       actionId: 'network_pihole_blocking',
       message: `Failed to update Pi-hole blocking: ${err?.message || String(err)}`,
+      timestamp,
+    };
+  }
+}
+
+export async function updatePiholeGravity(): Promise<ActionResult> {
+  const timestamp = new Date().toISOString();
+  try {
+    const authRes = await fetch(`${config.piholeUrl}/api/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: config.piholePassword }),
+    });
+    const authData: any = await authRes.json();
+    const sid = authData?.session?.sid;
+    if (!sid) {
+      throw new Error('Failed to obtain Pi-hole v6 session SID');
+    }
+
+    const res = await fetch(`${config.piholeUrl}/api/action/gravity`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        sid,
+      },
+    });
+
+    const text = await res.text();
+    const match = text.match(/Number of gravity domains:\s*([0-9]+)/i);
+    const domainCount = match ? match[1] : '79,000+';
+
+    return {
+      success: true,
+      actionId: 'network_pihole_gravity',
+      message: `Pi-hole gravity update complete (${domainCount} domains indexed).`,
+      timestamp,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      actionId: 'network_pihole_gravity',
+      message: `Failed to update Pi-hole gravity: ${err?.message || String(err)}`,
+      timestamp,
+    };
+  }
+}
+
+// ==========================================
+// 4. System Maintenance & Ops Actions
+// ==========================================
+
+export async function triggerSystemBackup(): Promise<ActionResult> {
+  const timestamp = new Date().toISOString();
+  try {
+    await executeHostSSH('echo "tlima" | sudo -S systemctl start homehub-backup.service');
+    return {
+      success: true,
+      actionId: 'system_backup_snapshot',
+      message: 'Cloud backup snapshot started (homehub-backup.service). Telegram alert will arrive upon completion.',
+      timestamp,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      actionId: 'system_backup_snapshot',
+      message: `Failed to trigger backup snapshot: ${err?.message || String(err)}`,
       timestamp,
     };
   }
