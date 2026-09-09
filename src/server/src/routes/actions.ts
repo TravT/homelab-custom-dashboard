@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { config } from '../config.js';
 import {
   triggerJellyfinRefresh,
   triggerBazarrSync,
@@ -7,10 +8,34 @@ import {
   speakPhoneTTS,
   pingS24Phone,
   toggleS20Screen,
-  restartNomadJob,
 } from '../services/actions.js';
 
 export const actionRoutes: FastifyPluginAsync = async (fastify) => {
+  // Security PIN Verification preHandler
+  fastify.addHook('preHandler', async (request, reply) => {
+    // Allow PIN check endpoint through without header
+    if (request.url.includes('/verify-pin')) return;
+    if (!config.actionPin) return;
+
+    const clientPin = request.headers['x-action-pin'];
+    if (clientPin !== config.actionPin) {
+      return reply.status(401).send({
+        success: false,
+        message: 'Unauthorized: Valid Action PIN required to dispatch commands.',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Verify PIN Endpoint for UI Unlock
+  fastify.post<{ Body: { pin: string } }>('/verify-pin', async (request, reply) => {
+    const { pin } = request.body || {};
+    if (!config.actionPin || pin === config.actionPin) {
+      return reply.send({ success: true, message: 'Action PIN verified' });
+    }
+    return reply.status(401).send({ success: false, message: 'Invalid Action PIN' });
+  });
+
   // Media Routes
   fastify.post('/media/scan-jellyfin', async (_request, reply) => {
     const result = await triggerJellyfinRefresh();
@@ -48,21 +73,6 @@ export const actionRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post<{ Body: { state?: 'toggle' | 'on' | 'off' } }>('/phone/screen', async (request, reply) => {
     const { state } = request.body || {};
     const result = await toggleS20Screen(state);
-    reply.status(result.success ? 200 : 500).send(result);
-  });
-
-  // Cluster Container Routes
-  fastify.post<{ Body: { job: string } }>('/cluster/restart-job', async (request, reply) => {
-    const { job } = request.body || {};
-    if (!job) {
-      return reply.status(400).send({
-        success: false,
-        actionId: 'cluster_restart_job',
-        message: 'Missing "job" parameter in request body.',
-        timestamp: new Date().toISOString(),
-      });
-    }
-    const result = await restartNomadJob(job);
     reply.status(result.success ? 200 : 500).send(result);
   });
 };

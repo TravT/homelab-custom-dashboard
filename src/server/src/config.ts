@@ -26,6 +26,7 @@ export const config = {
   bazarrUrl: process.env.BAZARR_URL || `http://${HOST_IP}:6767`,
   bazarrApiKey: process.env.BAZARR_API_KEY || '353f9e0429646737f64bdfc258813353',
   maintainerrUrl: process.env.MAINTAINERR_URL || `http://${HOST_IP}:6246`,
+  actionPin: process.env.ACTION_PIN || '1337',
   staticDir: process.env.STATIC_DIR || path.resolve(process.cwd(), 'public'),
   dropzoneDir: process.env.DROPZONE_DIR || path.resolve(process.cwd(), 'data/dropzone'),
   cacheTtlMs: 2000,

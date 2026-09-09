@@ -16,7 +16,6 @@ import { SearchModal } from './components/modals/SearchModal.jsx';
 import { useDropzone } from './hooks/useDropzone.js';
 import { DropzoneModal } from './components/dropzone/DropzoneModal.jsx';
 import { GlobalDropOverlay } from './components/dropzone/GlobalDropOverlay.jsx';
-import { ActionTrigger } from './components/actions/ActionTrigger.jsx';
 import { ActionConsoleDrawer } from './components/actions/ActionConsoleDrawer.jsx';
 
 /**
@@ -67,6 +66,18 @@ export default function App() {
     if (scrollContainer) scrollContainer.addEventListener('scroll', handleScroll);
     return () => scrollContainer?.removeEventListener('scroll', handleScroll);
   }, [lastScrollY]);
+
+  // Global Hotkey Listener: Cmd+Shift+A / Ctrl+Shift+A toggles Action Dispatcher
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        setShowActions((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   return (
     <div 
@@ -151,9 +162,6 @@ export default function App() {
         onOpenDropzone={() => dropzone.openDropzone('upload')}
         onOpenActions={() => setShowActions(true)}
       />
-
-      {/* QUICK FLOATING ACTION TRIGGER */}
-      <ActionTrigger onOpen={() => setShowActions(true)} />
 
       {/* MAIN CONTENT AREA */}
       <main id="main-scroll" className="flex-1 flex flex-col h-screen overflow-y-auto w-full md:pl-20 no-scrollbar scroll-smooth relative z-10">

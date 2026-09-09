@@ -11,14 +11,6 @@ export interface ActionResult {
   details?: any;
 }
 
-const ALLOWED_RESTART_JOBS = [
-  'media-server',
-  'downloaders',
-  'servarr',
-  'custom-ws-scrcpy',
-  'dozzle',
-  'uptime-kuma',
-];
 
 function getS24PrivateKey(): string | Buffer | null {
   if (config.sshPrivateKey) {
@@ -204,8 +196,8 @@ export async function pushS24Clipboard(text: string): Promise<ActionResult> {
   }
 
   try {
-    const sanitized = text.replace(/"/g, '\\"').replace(/\$/g, '\\$');
-    await executeS24SSH(`/data/data/com.termux/files/usr/bin/termux-clipboard-set "${sanitized}"`);
+    const b64 = Buffer.from(text, 'utf8').toString('base64');
+    await executeS24SSH(`echo "${b64}" | base64 -d | /data/data/com.termux/files/usr/bin/termux-clipboard-set`);
     return {
       success: true,
       actionId: 'phone_s24_clipboard',
@@ -234,8 +226,9 @@ export async function speakPhoneTTS(message: string): Promise<ActionResult> {
   }
 
   try {
-    const sanitized = message.replace(/"/g, '\\"').replace(/\$/g, '\\$');
-    await executeS24SSH(`/data/data/com.termux/files/usr/bin/termux-tts-speak "${sanitized}"`);
+    const trimmed = message.slice(0, 300);
+    const b64 = Buffer.from(trimmed, 'utf8').toString('base64');
+    await executeS24SSH(`echo "${b64}" | base64 -d | /data/data/com.termux/files/usr/bin/termux-tts-speak`);
     return {
       success: true,
       actionId: 'phone_tts',
@@ -325,57 +318,4 @@ export async function toggleS20Screen(state: 'toggle' | 'on' | 'off' = 'toggle')
   }
 }
 
-// ==========================================
-// 3. Cluster Container Actions (Nomad)
-// ==========================================
 
-export async function restartNomadJob(job: string): Promise<ActionResult> {
-  const timestamp = new Date().toISOString();
-
-  if (!ALLOWED_RESTART_JOBS.includes(job)) {
-    return {
-      success: false,
-      actionId: 'cluster_restart_job',
-      message: `Job '${job}' is not in the safe restart whitelist (${ALLOWED_RESTART_JOBS.join(', ')}).`,
-      timestamp,
-    };
-  }
-
-  try {
-    // 1. Get allocations for job
-    const allocRes = await fetch(`${config.nomadUrl}/v1/job/${job}/allocations`);
-    if (!allocRes.ok) {
-      throw new Error(`Failed to query allocations for job ${job}: ${allocRes.statusText}`);
-    }
-
-    const allocs = (await allocRes.json()) as any[];
-    const runningAlloc = allocs.find((a: any) => a.ClientStatus === 'running');
-    if (!runningAlloc) {
-      throw new Error(`No active running allocation found for job '${job}'`);
-    }
-
-    // 2. Restart allocation in-place
-    const restartRes = await fetch(`${config.nomadUrl}/v1/client/allocation/${runningAlloc.ID}/restart`, {
-      method: 'POST',
-    });
-
-    if (restartRes.ok) {
-      return {
-        success: true,
-        actionId: 'cluster_restart_job',
-        message: `Allocation '${runningAlloc.ID.slice(0, 8)}' for job '${job}' successfully restarted in-place.`,
-        timestamp,
-        details: { jobId: job, allocationId: runningAlloc.ID },
-      };
-    }
-
-    throw new Error(`Nomad restart API returned status ${restartRes.status}`);
-  } catch (err: any) {
-    return {
-      success: false,
-      actionId: 'cluster_restart_job',
-      message: `Job restart failed: ${err?.message || String(err)}`,
-      timestamp,
-    };
-  }
-}
