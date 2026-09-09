@@ -573,37 +573,51 @@ export async function toggleS20Screen(state: 'toggle' | 'on' | 'off' | 'unlock' 
   }
 }
 
-export async function captureS20Snapshot(): Promise<ActionResult> {
+export async function captureS20Snapshot(camera: '0' | '1' = '0'): Promise<ActionResult> {
   const timestamp = new Date().toISOString();
   try {
-    const { stdout } = await executeS20SSHBinary('adb -s 127.0.0.1:5555 exec-out screencap -p', 12000);
-    if (!stdout || stdout.length < 1000) {
-      throw new Error(`Invalid screenshot buffer received (length: ${stdout?.length || 0})`);
+    const tempRemotePath = `/sdcard/s20_snap_${Date.now()}.jpg`;
+    // 1. Start TermuxAPILauncherActivity to satisfy Android 11+ foreground camera permission
+    // 2. Execute termux-camera-photo with selected camera ID
+    // 3. Put device back to sleep
+    const snapCmd = `adb -s 127.0.0.1:5555 shell am start -n com.termux.api/.activities.TermuxAPILauncherActivity && sleep 1 && adb -s 127.0.0.1:5555 shell su -c '/data/data/com.termux/files/usr/bin/termux-camera-photo -c ${camera} ${tempRemotePath}' && sleep 2 && adb -s 127.0.0.1:5555 shell input keyevent KEYCODE_SLEEP`;
+    await executeS20SSH(snapCmd, 20000);
+
+    // Read JPEG buffer directly via ADB exec-out
+    const { stdout } = await executeS20SSHBinary(`adb -s 127.0.0.1:5555 exec-out cat ${tempRemotePath}`, 15000);
+
+    // Clean up temporary snapshot file from S20 FE asynchronously
+    executeS20SSH(`adb -s 127.0.0.1:5555 shell rm -f ${tempRemotePath}`).catch(() => {});
+
+    if (!stdout || stdout.length < 5000) {
+      throw new Error(`Invalid camera JPEG buffer received (length: ${stdout?.length || 0})`);
     }
 
     const drop = await createDrop({
-      filename: `s20_snapshot_${Date.now()}.png`,
-      mimeType: 'image/png',
+      filename: `s20_camera_${camera === '1' ? 'front' : 'rear'}_${Date.now()}.jpg`,
+      mimeType: 'image/jpeg',
       stream: Readable.from(stdout),
       ttlMinutes: 60 * 24, // 24 hours
     });
 
+    const camLabel = camera === '1' ? 'Front (Selfie)' : 'Rear (Main)';
     return {
       success: true,
       actionId: 'phone_s20_snapshot',
-      message: 'Galaxy S20 FE screen snapshot captured and uploaded to Dropzone.',
+      message: `Galaxy S20 FE ${camLabel} camera snapshot captured and uploaded to Dropzone.`,
       timestamp,
       details: {
         dropId: drop.id,
         downloadUrl: drop.downloadUrl,
         sizeBytes: drop.sizeBytes,
+        camera: camLabel,
       },
     };
   } catch (err: any) {
     return {
       success: false,
       actionId: 'phone_s20_snapshot',
-      message: `Failed to capture S20 screen: ${err?.message || String(err)}`,
+      message: `Failed to capture S20 camera photo: ${err?.message || String(err)}`,
       timestamp,
     };
   }

@@ -110,8 +110,9 @@ export const actionRoutes: FastifyPluginAsync = async (fastify) => {
     reply.status(result.success ? 200 : 500).send(result);
   });
 
-  fastify.post('/phone/s20/snapshot', async (_request, reply) => {
-    const result = await captureS20Snapshot();
+  fastify.post<{ Body: { camera?: '0' | '1' } }>('/phone/s20/snapshot', async (request, reply) => {
+    const { camera } = request.body || {};
+    const result = await captureS20Snapshot(camera || '0');
     reply.status(result.success ? 200 : 500).send(result);
   });
 

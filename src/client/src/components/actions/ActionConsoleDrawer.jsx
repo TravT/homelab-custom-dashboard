@@ -189,12 +189,13 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
     return res;
   };
 
-  const handleS20Snapshot = async () => {
-    addLog('▶ Capturing S20 FE live display frame to Dropzone...', 'info');
-    const res = await dispatchClusterAction('/phone/s20/snapshot');
+  const handleS20Snapshot = async (camera = '0') => {
+    const camLabel = camera === '1' ? 'Front (Selfie)' : 'Rear (Main)';
+    addLog(`▶ Capturing high-res physical camera photo from S20 FE ${camLabel}...`, 'info');
+    const res = await dispatchClusterAction('/phone/s20/snapshot', { camera });
     if (res.needsPin) setIsAuthorized(false);
     if (res.success && res.details?.downloadUrl) {
-      addLog(`✓ Snapshot saved! Preview: ${res.details.downloadUrl}`, 'success');
+      addLog(`✓ Camera snapshot saved! Preview: ${res.details.downloadUrl}`, 'success');
     } else {
       addLog(res.message, res.success ? 'success' : 'error');
     }
@@ -407,10 +408,15 @@ export function ActionConsoleDrawer({ isOpen, onClose }) {
                       onExecute={handleToggleS20Screen}
                     />
                     <ActionCard
-                      title="S20 Screen Snapshot"
-                      description="Captures live display frame of S20 FE edge node and uploads to Dropzone."
+                      title="S20 Camera Snapshot"
+                      description="Captures a physical photo via S20 FE camera lens and uploads to Dropzone."
                       category="android"
                       icon={Camera}
+                      options={[
+                        { id: '0', label: 'Rear (Main)' },
+                        { id: '1', label: 'Front (Selfie)' },
+                      ]}
+                      defaultOption="0"
                       onExecute={handleS20Snapshot}
                     />
                     <ActionCard
