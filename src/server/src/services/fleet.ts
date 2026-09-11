@@ -216,6 +216,7 @@ async function queryS20ADB(): Promise<typeof lastKnownS20> {
         const standard = standardMatch ? `Wi-Fi ${standardMatch[1]}` : 'Wi-Fi 6';
         const ipMatch = raw.match(/IP:\s*\/?([0-9.]+)/);
         const ip = ipMatch ? ipMatch[1] : (lastKnownS20.wifi.ip || '192.168.0.106');
+        const percent = Math.min(100, Math.max(20, Math.round(((rssi + 100) / 70) * 100)));
 
         lastKnownS20 = {
           battery: { level, status, tempC },
