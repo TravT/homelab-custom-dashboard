@@ -80,7 +80,7 @@ let lastKnownS20 = {
 
 let lastKnownS24 = {
   battery: { level: 80, status: 'Discharging', tempC: 26.0, health: 'Good', plugged: false },
-  wifi: { ssid: 'Link301', rssi: -48, speed: '864Mbps', ip: '192.168.0.200', percent: 85 },
+  wifi: { ssid: 'Standby / Connecting', rssi: -50, speed: '---', ip: '---', percent: 80 },
   lastSeen: new Date().toISOString(),
 };
 
@@ -226,10 +226,24 @@ function getS24PrivateKey(): string | Buffer | null {
   return null;
 }
 
+let s24InFlightPromise: Promise<typeof lastKnownS24> | null = null;
+
 /**
  * Queries real-time battery and Wi-Fi telemetry directly from S24 Ultra via Termux SSH.
  */
 async function queryS24SSH(): Promise<typeof lastKnownS24> {
+  if (s24InFlightPromise) {
+    return s24InFlightPromise;
+  }
+
+  s24InFlightPromise = executeS24Query().finally(() => {
+    s24InFlightPromise = null;
+  });
+
+  return s24InFlightPromise;
+}
+
+async function executeS24Query(): Promise<typeof lastKnownS24> {
   const privateKey = getS24PrivateKey();
   if (!privateKey) {
     return lastKnownS24;
@@ -251,7 +265,7 @@ async function queryS24SSH(): Promise<typeof lastKnownS24> {
 
     const timeoutTimer = setTimeout(() => {
       finish(lastKnownS24);
-    }, 3000);
+    }, 15000);
 
     conn.on('ready', () => {
       conn.exec(
@@ -280,10 +294,20 @@ async function queryS24SSH(): Promise<typeof lastKnownS24> {
               const tempC = typeof bat.temperature === 'number' ? Math.round(bat.temperature * 10) / 10 : 26.0;
               const health = bat.health || 'Good';
 
-              const ssid = wifi?.ssid || 'Link301';
-              const rssi = typeof wifi?.rssi === 'number' ? wifi.rssi : -48;
-              const speed = wifi?.link_speed_mbps ? `${wifi.link_speed_mbps}Mbps` : '864Mbps';
+              const isSupplicantCompleted = wifi && wifi.supplicant_state === 'COMPLETED';
+              let ssid = 'Cellular / Offline';
+              if (isSupplicantCompleted && wifi.ssid && wifi.ssid !== '<unknown ssid>') {
+                ssid = wifi.ssid;
+              } else if (isSupplicantCompleted && wifi.ssid === '<unknown ssid>') {
+                ssid = 'Wi-Fi (SSID Hidden)';
+              } else if (wifi?.bssid && wifi.bssid !== '02:00:00:00:00:00') {
+                ssid = 'Connected Wi-Fi';
+              }
+
+              const rssi = typeof wifi?.rssi === 'number' ? wifi.rssi : -55;
+              const speed = wifi?.link_speed_mbps ? `${wifi.link_speed_mbps}Mbps` : (isSupplicantCompleted ? '300Mbps' : 'Cellular Data');
               const percent = Math.min(100, Math.max(20, Math.round(((rssi + 100) / 70) * 100)));
+              const ip = wifi?.ip || config.s24Host;
 
               lastKnownS24 = {
                 battery: {
@@ -297,7 +321,7 @@ async function queryS24SSH(): Promise<typeof lastKnownS24> {
                   ssid,
                   rssi,
                   speed,
-                  ip: wifi?.ip || '192.168.0.200',
+                  ip,
                   percent,
                 },
                 lastSeen: new Date().toISOString(),
@@ -321,7 +345,7 @@ async function queryS24SSH(): Promise<typeof lastKnownS24> {
       port: config.s24SshPort,
       username: config.s24SshUser,
       privateKey,
-      readyTimeout: 2500,
+      readyTimeout: 10000,
     });
   });
 }
@@ -337,7 +361,7 @@ export async function getFleetQuickStatus(): Promise<FleetQuickStatus> {
 
   const [s20Status, s24Status] = await Promise.all([
     probeTCP(config.s20Host, 22, 1200),
-    probeTCP(config.s24Host, config.s24SshPort, 1500),
+    probeTCP(config.s24Host, config.s24SshPort, 3500),
   ]);
 
   const quickStatus: FleetQuickStatus = {
