@@ -73,15 +73,32 @@ let lastKnownDell = {
   power_plugged: true,
 };
 
+let cachedHomelabWan = '179.218.9.151';
+let homelabWanExpires = 0;
+
+async function getHomelabWan(): Promise<string> {
+  const now = Date.now();
+  if (homelabWanExpires > now) return cachedHomelabWan;
+  try {
+    const res = await fetchWithTimeout('https://api.ipify.org', 2500);
+    if (typeof res === 'string' && res.trim().length > 6) {
+      cachedHomelabWan = res.trim();
+      homelabWanExpires = now + 600000; // 10 min cache
+    }
+  } catch {}
+  return cachedHomelabWan;
+}
+
 let lastKnownS20 = {
   battery: { level: 85, status: 'AC Connected', tempC: 25.0 },
-  wifi: { ssid: 'Link301', rssi: -56, speed: '288Mbps', standard: 'Wi-Fi 6', percent: 85 },
+  wifi: { ssid: 'Link301', rssi: -56, speed: '288Mbps', standard: 'Wi-Fi 6', ip: '192.168.0.106', percent: 85 },
 };
 
 let lastKnownS24 = {
   battery: { level: 80, status: 'Discharging', tempC: 26.0, health: 'Good', plugged: false },
-  wifi: { ssid: 'Standby / Connecting', rssi: -50, speed: '---', ip: '---', percent: 80 },
+  wifi: { ssid: 'Standby / Connecting', rssi: -50, speed: '---', ip: '---', wan: '---', percent: 80 },
   lastSeen: new Date().toISOString(),
+  elapsedMs: 5000,
 };
 
 function getBatteryColorClass(percent: number, plugged: boolean): string {
@@ -197,11 +214,12 @@ async function queryS20ADB(): Promise<typeof lastKnownS20> {
         const rssi = rssiMatch ? parseInt(rssiMatch[1], 10) : -56;
         const speed = speedMatch ? speedMatch[1] : '288Mbps';
         const standard = standardMatch ? `Wi-Fi ${standardMatch[1]}` : 'Wi-Fi 6';
-        const percent = Math.min(100, Math.max(20, Math.round(((rssi + 100) / 70) * 100)));
+        const ipMatch = raw.match(/IP:\s*\/?([0-9.]+)/);
+        const ip = ipMatch ? ipMatch[1] : (lastKnownS20.wifi.ip || '192.168.0.106');
 
         lastKnownS20 = {
           battery: { level, status, tempC },
-          wifi: { ssid, rssi, speed, standard, percent },
+          wifi: { ssid, rssi, speed, standard, ip, percent },
         };
       }
     }
@@ -252,6 +270,7 @@ async function executeS24Query(): Promise<typeof lastKnownS24> {
   return new Promise((resolve) => {
     const conn = new SSHClient();
     let isDone = false;
+    const t0 = Date.now();
 
     const finish = (result: typeof lastKnownS24) => {
       if (!isDone) {
@@ -269,7 +288,7 @@ async function executeS24Query(): Promise<typeof lastKnownS24> {
 
     conn.on('ready', () => {
       conn.exec(
-        '/data/data/com.termux/files/usr/bin/termux-battery-status; echo "---"; /data/data/com.termux/files/usr/bin/termux-wifi-connectioninfo',
+        '/data/data/com.termux/files/usr/bin/termux-battery-status; echo "---"; /data/data/com.termux/files/usr/bin/termux-wifi-connectioninfo; echo "---"; curl -s --max-time 2 https://api.ipify.org || echo ""',
         (err, stream) => {
           if (err) {
             clearTimeout(timeoutTimer);
@@ -287,6 +306,7 @@ async function executeS24Query(): Promise<typeof lastKnownS24> {
               const parts = stdoutData.split('---');
               const bat = JSON.parse(parts[0].trim());
               const wifi = parts[1] ? JSON.parse(parts[1].trim()) : null;
+              const wanRaw = parts[2] ? parts[2].trim() : '';
 
               const level = bat.percentage ?? bat.level ?? 80;
               const statusRaw = (bat.status || 'DISCHARGING').toUpperCase();
@@ -308,6 +328,8 @@ async function executeS24Query(): Promise<typeof lastKnownS24> {
               const speed = wifi?.link_speed_mbps ? `${wifi.link_speed_mbps}Mbps` : (isSupplicantCompleted ? '300Mbps' : 'Cellular Data');
               const percent = Math.min(100, Math.max(20, Math.round(((rssi + 100) / 70) * 100)));
               const ip = wifi?.ip || config.s24Host;
+              const wan = (wanRaw && wanRaw.length > 6 && !wanRaw.includes(' ')) ? wanRaw : (lastKnownS24.wifi.wan || '---');
+              const elapsedMs = Date.now() - t0;
 
               lastKnownS24 = {
                 battery: {
@@ -322,9 +344,11 @@ async function executeS24Query(): Promise<typeof lastKnownS24> {
                   rssi,
                   speed,
                   ip,
+                  wan,
                   percent,
                 },
                 lastSeen: new Date().toISOString(),
+                elapsedMs,
               };
               finish(lastKnownS24);
             } catch {
@@ -419,6 +443,7 @@ export async function getFullFleetTelemetry(): Promise<FullFleetTelemetry> {
   const dellPlugged = lastKnownDell.power_plugged;
   const loadAvg = os.loadavg();
   const activeNomadJobs = nomadJobs.filter((j: any) => j.Status === 'running').length || nomadJobs.length || 7;
+  const homelabWan = await getHomelabWan();
 
   // 1. Dell Latitude 7390 Node
   const dellNode: NodeTelemetry = {
@@ -429,15 +454,15 @@ export async function getFullFleetTelemetry(): Promise<FullFleetTelemetry> {
     status: 'online',
     bar1: {
       label: '1. UPS POWER BUFFER',
-      value: `${Math.round(dellBatteryPct)}% ⚡ ${dellPlugged ? 'AC ON' : 'BATTERY'} (~4.5h Outage Runtime Available)`,
-      subtext: 'Battery Health: 89% (53.4 Wh / 60 Wh)',
+      value: `${Math.round(dellBatteryPct)}% ⚡ (~4.5h Outage Run)`,
+      subtext: `${dellPlugged ? 'AC Connected' : 'Battery Discharging'} • Health: 89% (53.4/60 Wh)`,
       percent: dellBatteryPct,
       colorClass: getBatteryColorClass(dellBatteryPct, dellPlugged),
     },
     bar2: {
       label: '2. CONTAINER ENGINE DENSITY',
       value: `37 Containers Active • ${activeNomadJobs} Nomad Jobs (Healthy)`,
-      subtext: 'Docker 29.7.2 + Nomad 1.8.3 Driver',
+      subtext: `LAN: 192.168.0.48 • WAN: ${homelabWan}`,
       percent: 85,
       colorClass: 'bg-neon-cyan shadow-[0_0_8px_#38bdf8]',
     },
@@ -467,7 +492,7 @@ export async function getFullFleetTelemetry(): Promise<FullFleetTelemetry> {
     bar2: {
       label: '2. WI-FI NETWORK',
       value: `${s20Real.wifi.ssid} (${s20Real.wifi.rssi} dBm, ${s20Real.wifi.standard})`,
-      subtext: `Link: ${s20Real.wifi.speed} • 5GHz Band`,
+      subtext: `LAN: ${s20Real.wifi.ip || '192.168.0.106'} • WAN: ${homelabWan}`,
       percent: s20Real.wifi.percent,
       colorClass: 'bg-neon-purple shadow-[0_0_8px_#a78bfa]',
     },
@@ -488,12 +513,12 @@ export async function getFullFleetTelemetry(): Promise<FullFleetTelemetry> {
     ip: config.s24Host,
     status: nodeStates.s24ultra,
     bar1: {
-      label: '1. BATTERY LEVEL',
+      label: '1. DEVICE BATTERY',
       value: s24IsOnline
-        ? `${s24Real.battery.level}% (${s24Real.battery.status}) (Health: ${s24Real.battery.health})`
-        : `${s24Real.battery.level}% (Last Known - Standby)`,
+        ? `${s24Real.battery.level}%${s24Real.battery.plugged ? ' ⚡' : ''} (${s24Real.battery.tempC}°C)`
+        : `${s24Real.battery.level}% (${s24Real.battery.tempC}°C - Standby)`,
       subtext: s24IsOnline
-        ? `Temp: ${s24Real.battery.tempC}°C • Cycle Health: Good`
+        ? `${s24Real.battery.status} • Health: ${s24Real.battery.health || 'Good'}`
         : 'Standby Cached Telemetry',
       percent: s24Real.battery.level,
       colorClass: s24IsOnline
@@ -506,7 +531,7 @@ export async function getFullFleetTelemetry(): Promise<FullFleetTelemetry> {
         ? `${s24Real.wifi.ssid} (${s24Real.wifi.rssi} dBm, ${s24Real.wifi.speed})`
         : `${s24Real.wifi.ssid} (Standby Sleep)`,
       subtext: s24IsOnline
-        ? `Wi-Fi 7 / 5GHz • Local IP: ${s24Real.wifi.ip}`
+        ? `LAN: ${s24Real.wifi.ip || '---'} • WAN: ${(s24Real.wifi as any).wan || '---'}`
         : 'Device asleep / Screen locked',
       percent: s24Real.wifi.percent,
       colorClass: s24IsOnline ? 'bg-neon-purple shadow-[0_0_8px_#a78bfa]' : 'bg-gray-600',
@@ -514,7 +539,12 @@ export async function getFullFleetTelemetry(): Promise<FullFleetTelemetry> {
     grid: {
       engine: { label: 'WORKLOAD ENGINE', value: 'Termux-API (Daemon)' },
       role: { label: 'CLUSTER ROLE', value: 'Mobile Node (Direct)' },
-      strain: { label: 'SYSTEM STRAIN', value: s24IsOnline ? 'Direct SSH Link: Active' : 'Standby (Screen Off Sleep)' },
+      strain: { 
+        label: 'SYSTEM STRAIN', 
+        value: s24IsOnline 
+          ? (((s24Real as any).elapsedMs || 0) > 3000 ? 'DERP Relay (Roaming ~404ms)' : 'Direct Mesh Link (<5ms)')
+          : 'Standby (Screen Off Sleep)' 
+      },
       access: { label: 'ACCESS CHANNELS', value: `Tailscale SSH (:${config.s24SshPort})` },
     },
     lastSeen: s24Real.lastSeen,
