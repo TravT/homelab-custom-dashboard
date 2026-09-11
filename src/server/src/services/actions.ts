@@ -152,12 +152,12 @@ function executeSSHBinary(
       port: target.port,
       username: target.user,
       privateKey,
-      readyTimeout: 5000,
+      readyTimeout: 10000,
     });
   });
 }
 
-function executeS24SSH(cmd: string, timeoutMs = 6000) {
+function executeS24SSH(cmd: string, timeoutMs = 15000) {
   return executeSSH(
     { host: config.s24Host, port: config.s24SshPort, user: config.s24SshUser, name: 'Galaxy S24 Ultra' },
     cmd,
@@ -489,7 +489,8 @@ export async function pingS24Phone(): Promise<ActionResult> {
   const timestamp = new Date().toISOString();
   try {
     await executeS24SSH(
-      '/data/data/com.termux/files/usr/bin/termux-volume alarm 15; /data/data/com.termux/files/usr/bin/termux-vibrate -d 1500 -f; /data/data/com.termux/files/usr/bin/termux-notification -t "Homelab Ping" -c "Device location requested from Command Center" --sound'
+      '/data/data/com.termux/files/usr/bin/termux-volume alarm 15; /data/data/com.termux/files/usr/bin/termux-vibrate -d 1500 -f; /data/data/com.termux/files/usr/bin/termux-notification -t "Homelab Ping" -c "Device location requested from Command Center" --sound',
+      18000
     );
     return {
       success: true,
@@ -630,7 +631,17 @@ export async function setNightStandby(target: 's20' | 's24' | 'both' = 's20'): P
   const timestamp = new Date().toISOString();
   try {
     const sleepS20 = async () => {
-      await executeS20SSH('adb -s 127.0.0.1:5555 shell settings put system screen_brightness 0 && adb -s 127.0.0.1:5555 shell input keyevent KEYCODE_SLEEP');
+      await sendHttpJson(`${config.scrcpyUrl}/api/adb/command`, {
+        method: 'POST',
+        headers: { Host: config.scrcpyHost },
+        body: {
+          target: `${config.s20Host}:5555`,
+          commands: [
+            'shell settings put system screen_brightness 0',
+            'shell input keyevent KEYCODE_SLEEP',
+          ],
+        },
+      });
       return 'Galaxy S20 FE';
     };
     const sleepS24 = async () => {
